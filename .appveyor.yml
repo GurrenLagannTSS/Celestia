@@ -1,4 +1,4 @@
-version: cel+-1.7.0-dev-{build}
+version: 1.7.0-dev-{build}
 
 only_commits:
   files:
@@ -22,14 +22,14 @@ branches:
   - master
 
 artifacts:
-- path: '**/cel+-*.7z'
+- path: '**/celestia-*.7z'
   name: win
 
 # Build worker image (VM template)
 image: "Visual Studio 2015"
 
 # clone directory
-clone_folder: c:\projects\enhancedcelestia
+clone_folder: c:\projects\celestia
 
 # set clone depth
 clone_depth: 1
@@ -48,6 +48,8 @@ init:
 
 install:
 - cd c:\tools\vcpkg
+- git pull
+- .\bootstrap-vcpkg.bat
 - vcpkg install libpng:x86-windows
 - vcpkg install gettext:x86-windows
 - vcpkg install libjpeg-turbo:x86-windows
@@ -57,7 +59,6 @@ install:
 - vcpkg install libepoxy:x86-windows
 - vcpkg install eigen3:x86-windows
 - vcpkg install freetype:x86-windows
-- git pull
 - vcpkg install cspice:x86-windows
 - vcpkg integrate install
 - cd %APPVEYOR_BUILD_FOLDER%
@@ -80,7 +81,7 @@ build_script:
 
 after_build:
   - cmd: >-
-      cd c:\projects\enhancedcelestia\build\src\celestia
+      cd c:\projects\celestia\build\src\celestia
 
       7z a celestia-win.x86.7z win32\Release\*
 
@@ -89,9 +90,9 @@ after_build:
       7z a celestia-qt.x86.7z qt\Release\*
 
 #on_failure:
-#- type "c:\projects\enhancedcelestia\build\CMakeFiles\CMakeOutput.log"
-#- type "c:\projects\enhancedcelestia\build\CMakeFiles\CMakeError.log"
-#- type "c:\projects\enhancedcelestia\build\CMakeCache.txt"
+#- type "c:\projects\celestia\build\CMakeFiles\CMakeOutput.log"
+#- type "c:\projects\celestia\build\CMakeFiles\CMakeError.log"
+#- type "c:\projects\celestia\build\CMakeCache.txt"
 
 # build cache to preserve files/folders between builds
 cache: c:\tools\vcpkg\installed\
