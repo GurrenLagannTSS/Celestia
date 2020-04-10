@@ -81,15 +81,6 @@ std::ofstream hdrlog;
 #include <celttf/truetypefont.h>
 #endif
 #include "glsupport.h"
-#ifdef VIDEO_SYNC
-#ifdef _WIN32
-#include <GL/wglew.h>
-#else
-#ifndef __APPLE__
-#include <GL/glxew.h>
-#endif // __APPLE__
-#endif //_WIN32
-#endif // VIDEO_SYNC
 #include <algorithm>
 #include <cstring>
 #include <cassert>
@@ -164,8 +155,6 @@ static bool commonDataInitialized = false;
 
 LODSphereMesh* g_lodSphere = nullptr;
 
-static Texture* starTex = nullptr;
-static Texture* glareTex = nullptr;
 static Texture* gaussianDiscTex = nullptr;
 static Texture* gaussianGlareTex = nullptr;
 
@@ -229,6 +218,7 @@ constexpr const uint64_t ShowSSO = Renderer::ShowPlanets      |
                                    Renderer::ShowMinorMoons   |
                                    Renderer::ShowAsteroids    |
                                    Renderer::ShowComets       |
+	                           Renderer::ShowPlanetRings  |		   
                                    Renderer::ShowSpacecrafts;
 // Deep Sky Objects
 constexpr const uint64_t ShowDSO = Renderer::ShowGalaxies     |
@@ -306,7 +296,7 @@ Renderer::Renderer() :
     exposurePrev(1.0f),
     brightPlus(0.0f),
 #endif
-    videoSync(false),
+
     settingsChanged(true),
     objectAnnotationSetOpen(false)
 {
@@ -391,131 +381,6 @@ Renderer::DetailOptions::DetailOptions() :
 {
 }
 
-
-static void StarTextureEval(float u, float v, float /*unused*/,
-                            unsigned char *pixel)
-{
-    float r = 1 - (float) sqrt(u * u + v * v);
-    if (r < 0)
-        r = 0;
-    else if (r < 0.5f)
-        r = 2.0f * r;
-    else
-        r = 1;
-
-    auto pixVal = (int) (r * 255.99f);
-    pixel[0] = pixVal;
-    pixel[1] = pixVal;
-    pixel[2] = pixVal;
-}
-
-static void GlareTextureEval(float u, float v, float /*unused*/,
-                             unsigned char *pixel)
-{
-    float r = 0.9f - (float) sqrt(u * u + v * v);
-    if (r < 0)
-        r = 0;
-
-    auto pixVal = (int) (r * 255.99f);
-    pixel[0] = 65;
-    pixel[1] = 64;
-    pixel[2] = 65;
-    pixel[3] = pixVal;
-}
-
-static void ShadowTextureEval(float u, float v, float /*unused*/,
-                              unsigned char *pixel)
-{
-    auto r = (float) sqrt(u * u + v * v);
-
-    // Leave some white pixels around the edges to the shadow doesn't
-    // 'leak'.  We'll also set the maximum mip map level for this texture to 3
-    // so we don't have problems with the edge texels at high mip map levels.
-    int pixVal = r < 15.0f / 16.0f ? 0 : 255;
-    pixel[0] = pixVal;
-    pixel[1] = pixVal;
-    pixel[2] = pixVal;
-}
-
-
-//! Lookup function for eclipse penumbras--the input is the amount of overlap
-//  between the occluder and sun disc, and the output is the fraction of
-//  full brightness.
-static void PenumbraFunctionEval(float u, float /*unused*/, float /*unused*/,
-                                 unsigned char *pixel)
-{
-    u = (u + 1.0f) * 0.5f;
-
-    // Using the cube root produces a good visual result
-    auto pixVal = (unsigned char) (::pow((double) u, 0.33) * 255.99);
-
-    pixel[0] = pixVal;
-}
-
-
-// ShadowTextureFunction is a function object for creating shadow textures
-// used for rendering eclipses.
-class ShadowTextureFunction : public TexelFunctionObject
-{
-public:
-    ShadowTextureFunction(float _umbra) : umbra(_umbra) {};
-    void operator()(float u, float v, float w, unsigned char* pixel) override;
-    float umbra;
-};
-
-void ShadowTextureFunction::operator()(float u, float v, float /*w*/,
-                                       unsigned char* pixel)
-{
-    auto r = (float) sqrt(u * u + v * v);
-    int pixVal = 255;
-
-    // Leave some white pixels around the edges to the shadow doesn't
-    // 'leak'.  We'll also set the maximum mip map level for this texture to 3
-    // so we don't have problems with the edge texels at high mip map levels.
-    r = r / (15.0f / 16.0f);
-    if (r < 1)
-    {
-        // The pixel value should depend on the area of the sun which is
-        // occluded.  We just fudge it here and use the square root of the
-        // radius.
-        if (r <= umbra)
-            pixVal = 0;
-        else
-            pixVal = (int) (sqrt((r - umbra) / (1 - umbra)) * 255.99f);
-    }
-
-    pixel[0] = pixVal;
-    pixel[1] = pixVal;
-    pixel[2] = pixVal;
-};
-
-
-class ShadowMaskTextureFunction : public TexelFunctionObject
-{
-public:
-    ShadowMaskTextureFunction() = default;
-    void operator()(float u, float v, float w, unsigned char* pixel) override;
-    float dummy;
-};
-
-void ShadowMaskTextureFunction::operator()(float u, float /*v*/, float /*w*/,
-                                           unsigned char* pixel)
-{
-    unsigned char a = u > 0.0f ? 255 : 0;
-    pixel[0] = a;
-    pixel[1] = a;
-    pixel[2] = a;
-    pixel[3] = a;
-}
-
-
-static void IllumMapEval(float x, float y, float z,
-                         unsigned char* pixel)
-{
-    pixel[0] = 128 + (int) (127 * x);
-    pixel[1] = 128 + (int) (127 * y);
-    pixel[2] = 128 + (int) (127 * z);
-}
 
 
 #if 0
@@ -759,12 +624,6 @@ bool Renderer::init(
     {
         g_lodSphere = new LODSphereMesh();
 
-        starTex = CreateProceduralTexture(64, 64, GL_RGB, StarTextureEval);
-
-        glareTex = LoadTextureFromFile("textures/flare.jpg");
-        if (glareTex == nullptr)
-            glareTex = CreateProceduralTexture(64, 64, GL_RGB, GlareTextureEval);
-
         gaussianDiscTex = BuildGaussianDiscTexture(8);
         gaussianGlareTex = BuildGaussianGlareTexture(9);
 
@@ -969,19 +828,16 @@ Renderer::setStarColorTable(const ColorTemperatureTable* ct)
     markSettingsChanged();
 }
 
-
 bool Renderer::getVideoSync() const
 {
-    return videoSync;
+    return true;
 }
 
-void Renderer::setVideoSync(bool sync)
+void Renderer::setVideoSync(bool /*sync*/)
 {
-    videoSync = sync;
-    markSettingsChanged();
 }
 
-
+		    
 float Renderer::getAmbientLightLevel() const
 {
     return ambientLightLevel;
@@ -1878,8 +1734,6 @@ void Renderer::draw(const Observer& observer,
 
         if ((labelMode & BodyLabelMask) != 0)
             buildLabelLists(xfrustum, now);
-
-        starTex->bind();
     }
 
     setupSecondaryLightSources(secondaryIlluminators, lightSourceList);
@@ -2774,15 +2628,6 @@ void Renderer::draw(const Observer& observer,
     if (errCode != GL_NO_ERROR)
     {
         cout << "glError: " << (char*) gluErrorString(errCode) << '\n';
-    }
-#endif
-
-#ifdef VIDEO_SYNC
-    if (videoSync && glXWaitVideoSyncSGI != nullptr)
-    {
-        unsigned int count;
-        glXGetVideoSyncSGI(&count);
-        glXWaitVideoSyncSGI(2, (count+1) & 1, &count);
     }
 #endif
 }
