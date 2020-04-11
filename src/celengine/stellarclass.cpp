@@ -70,7 +70,7 @@ string StellarClass::str() const
     switch (getStarType())
     {
     case StellarClass::WhiteDwarf:
-        s0 = "D"[(unsigned int) getSpectralClass()];
+        s0 = "WD"[(unsigned int) getSpectralClass()];
         s1 = "0123456789"[getSubclass()];
     case StellarClass::NeutronStar:
         s0 = "Q"[(unsigned int) getSpectralClass()];
@@ -138,7 +138,7 @@ StellarClass::packV2() const
 {
     uint16_t sc = (starType == StellarClass::WhiteDwarf ? specClass - 1 : specClass);
 
-    return (((uint16_t) starType         << 14) |
+    return (((uint16_t) starType         << 18) |
            (((uint16_t) sc       & 0x1f) << 8)  |
            (((uint16_t) subclass & 0x0f) << 4)  |
            ((uint16_t)  lumClass & 0x0f));
