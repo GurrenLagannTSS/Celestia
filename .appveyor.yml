@@ -22,13 +22,13 @@ branches:
   - master
 
 artifacts:
-- path: '**/celestia-*.7z'
+- path: '**/cel+-*.7z'
   name: win
 # Build worker image (VM template)
 image: "Visual Studio 2015"
 
 # clone directory
-clone_folder: c:\projects\celestia
+clone_folder: c:\projects\cel+
 
 # set clone depth
 clone_depth: 1
@@ -80,7 +80,7 @@ build_script:
 
 after_build:
   - cmd: >-
-      cd c:\projects\celestia\build\src\celestia
+      cd c:\projects\cel+\build\src\cel+
 
       7z a cel+-win.x86.7z win32\Release\*
 
