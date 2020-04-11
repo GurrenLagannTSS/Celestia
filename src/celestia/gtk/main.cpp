@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  Celestia GTK+ Front-End
  *  Copyright (C) 2005 Pat Suwalski <pat@suwalski.net>
  *
@@ -281,10 +281,6 @@ static void initRealize(GtkWidget* widget, AppData* app)
     /* If full-screen at startup, make it so. */
     if (app->fullScreen)
         gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(gtk_action_group_get_action(app->agMain, "FullScreen")), TRUE);
-
-    /* If framerate limiting is off, set it so. */
-    if (!app->renderer->getVideoSync())
-        gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(gtk_action_group_get_action(app->agMain, "VideoSync")), FALSE);
 
     /* If URL at startup, make it so. */
     if (app->startURL != NULL)
