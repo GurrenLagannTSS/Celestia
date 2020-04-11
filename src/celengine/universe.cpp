@@ -23,7 +23,7 @@
 #include <celutil/utf8.h>
 #include <cassert>
 
-static const double ANGULAR_RES = 3.5e-6;
+static const double ANGULAR_RES = 1.0e-13;
 
 using namespace Eigen;
 using namespace std;
