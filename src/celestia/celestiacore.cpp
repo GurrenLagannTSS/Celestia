@@ -1697,9 +1697,9 @@ void CelestiaCore::charEntered(const char *c_p, int modifiers)
     case ']':
         if((renderer->getRenderFlags() & Renderer::ShowAutoMag) == 0)
         {
-            if (sim->getFaintestVisible() < 15.0f)
+            if (sim->getFaintestVisible() < 35.0f)
             {
-                setFaintest(sim->getFaintestVisible() + 0.2f);
+                setFaintest(sim->getFaintestVisible() + 0.1f);
                 notifyWatchers(FaintestChanged);
                 setlocale(LC_NUMERIC, "");
                 string buf = fmt::sprintf(_("Magnitude limit:  %.2f"),
@@ -1708,7 +1708,7 @@ void CelestiaCore::charEntered(const char *c_p, int modifiers)
                 flash(buf);
             }
         }
-        else if (renderer->getFaintestAM45deg() < 12.0f)
+        else if (renderer->getFaintestAM45deg() < 30.0f)
         {
             renderer->setFaintestAM45deg(renderer->getFaintestAM45deg() + 0.1f);
             setFaintestAutoMag();
