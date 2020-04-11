@@ -80,7 +80,7 @@ build_script:
 
 after_build:
   - cmd: >-
-      cd c:\projects\cel+\build\src\cel+
+      cd c:\projects\cel+\
 
       7z a cel+-win.x86.7z win32\Release\*
 
@@ -89,9 +89,9 @@ after_build:
       7z a cel+-qt.x86.7z qt\Release\*
 
 #on_failure:
-#- type "c:\projects\celestia\build\CMakeFiles\CMakeOutput.log"
-#- type "c:\projects\celestia\build\CMakeFiles\CMakeError.log"
-#- type "c:\projects\celestia\build\CMakeCache.txt"
+#- type "c:\projects\cel+\build\CMakeFiles\CMakeOutput.log"
+#- type "c:\projects\cel+\build\CMakeFiles\CMakeError.log"
+#- type "c:\projects\cel+\build\CMakeCache.txt"
 
 
 # build cache to preserve files/folders between builds

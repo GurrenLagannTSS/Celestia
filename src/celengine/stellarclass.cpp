@@ -70,10 +70,10 @@ string StellarClass::str() const
     switch (getStarType())
     {
     case StellarClass::WhiteDwarf:
-        s0 = "DDDDDDDD"[(unsigned int) getSpectralClass()];
+        s0 = "D"[(unsigned int) getSpectralClass()];
         s1 = "0123456789"[getSubclass()];
     case StellarClass::NeutronStar:
-        s0 = "QQQQ"[(unsigned int) getSpectralClass()];
+        s0 = "Q"[(unsigned int) getSpectralClass()];
         s1 = "0123456789"[getSubclass()];
     case StellarClass::BlackHole:
         return "X";
