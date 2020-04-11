@@ -136,12 +136,19 @@ StellarClass::packV1() const
 uint16_t
 StellarClass::packV2() const
 {
-    uint16_t sc = (starType == StellarClass::WhiteDwarf ? specClass - 1 : specClass);
-
-    return (((uint16_t) starType         << 18) |
-           (((uint16_t) sc       & 0x1f) << 8)  |
-           (((uint16_t) subclass & 0x0f) << 4)  |
-           ((uint16_t)  lumClass & 0x0f));
+    uint16_t sc;
+    if starType == StellarClass::WhiteDwarf
+       sc = (starType == StellarClass::WhiteDwarf ? specClass - 1 : specClass);
+            return (((uint16_t) starType         << 30) |
+                   (((uint16_t) sc       & 0x1f) << 8)  |
+                   (((uint16_t) subclass & 0x0f) << 8)  |
+                   ((uint16_t)  lumClass & 0x0f));
+    else
+       sc = (starType == StellarClass::NeutronStar ? specClass - 1 : specClass);
+             return (((uint16_t) starType         << 30) |
+                   (((uint16_t) sc       & 0x1f) << 4)  |
+                   (((uint16_t) subclass & 0x0f) << 8)  |
+                   ((uint16_t)  lumClass & 0x0f));
 }
 
 
