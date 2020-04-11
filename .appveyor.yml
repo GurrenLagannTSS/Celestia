@@ -1,4 +1,4 @@
-version: 1.7.0-dev-{build}
+version: cel+-1.0-dev-{build}
 
 only_commits:
   files:
@@ -48,6 +48,8 @@ init:
 
 install:
 - cd c:\tools\vcpkg
+- git pull
+- .\bootstrap-vcpkg.bat
 - vcpkg install libpng:x86-windows
 - vcpkg install gettext:x86-windows
 - vcpkg install libjpeg-turbo:x86-windows
@@ -57,7 +59,6 @@ install:
 - vcpkg install libepoxy:x86-windows
 - vcpkg install eigen3:x86-windows
 - vcpkg install freetype:x86-windows
-- git pull
 - vcpkg install cspice:x86-windows
 - vcpkg integrate install
 - cd %APPVEYOR_BUILD_FOLDER%
