@@ -26,7 +26,7 @@
 
 using namespace std;
 
-static const int MaxResolutionLevels = 13;
+static const int MaxResolutionLevels = 20;
 
 
 // Virtual textures are composed of tiles that are loaded from the hard drive
