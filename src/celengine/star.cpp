@@ -495,6 +495,7 @@ StarDetails::GetNormalStarDetails(StellarClass::SpectralClass specClass,
             case StellarClass::Spectral_O:
             case StellarClass::Spectral_WN:
             case StellarClass::Spectral_WC:
+            case StellarClass::Spectral_WO:
                 subclass = 9;
                 break;
             case StellarClass::Spectral_Y:
@@ -571,6 +572,9 @@ StarDetails::GetNormalStarDetails(StellarClass::SpectralClass specClass,
         case StellarClass::Spectral_WC:
             temp = tempWC[subclass];
             break;
+        case StellarClass::Spectral_WO:
+            temp = tempWO[subclass];
+            break;
         case StellarClass::Spectral_L:
             temp = tempL[subclass];
             break;
@@ -628,6 +632,7 @@ StarDetails::GetNormalStarDetails(StellarClass::SpectralClass specClass,
 
         case StellarClass::Spectral_WC:
         case StellarClass::Spectral_WN:
+        case StellarClass::Spectral_WO:
             period = rotperiod_O[lumIndex][subclass];
             bmagCorrection = bmag_correctionO[lumIndex][subclass];
             break;
