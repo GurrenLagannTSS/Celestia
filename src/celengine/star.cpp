@@ -392,8 +392,8 @@ const char* SubclassNames[11] = {
 };
 
 const char* SpectralClassNames[StellarClass::NormalClassCount] = {
-    "O", "B", "A", "F", "G", "K", "M", "R",
-    "S", "N", "WC", "WN", "?", "L", "T", "Y", "C",
+    "O", "B", "A", "F", "G", "K", "M", "R", "S", "N",
+    "WC", "WN", "WO", "?", "L", "T", "Y", "C",
 };
 
 const char* WDSpectralClassNames[StellarClass::WDClassCount] = {
