@@ -117,6 +117,13 @@ static float tempWC[10] =
     60000, 60000, 60000, 60000, 60000, 60000, 60000, 54000, 46000, 38000
 };
 
+// WO2 to WO4 temperatures taken from a sample of 6 WO stars.
+// Other temperatures are estimates.
+static float tempWO[10] =
+{
+    250000, 225000, 200000, 160000, 129500, 100000, 85000, 75000, 65000, 50000
+};
+
 // Brown dwarf temperatures. From this website:
 // https://www.pas.rochester.edu/~emamajek/EEM_dwarf_UBVIJHK_colors_Teff.txt
 // Data for types after Y2 (which are not actually used) is extrapolated.
