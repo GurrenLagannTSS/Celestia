@@ -1702,7 +1702,7 @@ void CelestiaCore::charEntered(const char *c_p, int modifiers)
                 setFaintest(sim->getFaintestVisible() + 0.1f);
                 notifyWatchers(FaintestChanged);
                 setlocale(LC_NUMERIC, "");
-                string buf = fmt::sprintf(_("Magnitude limit:  %.2f"),
+                string buf = fmt::sprintf(_("Magnitude limit:  %.1f"),
                                           sim->getFaintestVisible());
                 setlocale(LC_NUMERIC, "C");
                 flash(buf);
@@ -1713,7 +1713,7 @@ void CelestiaCore::charEntered(const char *c_p, int modifiers)
             renderer->setFaintestAM45deg(renderer->getFaintestAM45deg() + 0.1f);
             setFaintestAutoMag();
             setlocale(LC_NUMERIC, "");
-            string buf = fmt::sprintf(_("Auto magnitude limit at 45 degrees:  %.2f"),
+            string buf = fmt::sprintf(_("Auto magnitude limit at 45 degrees:  %.1f"),
                                       renderer->getFaintestAM45deg());
             setlocale(LC_NUMERIC, "C");
             flash(buf);
