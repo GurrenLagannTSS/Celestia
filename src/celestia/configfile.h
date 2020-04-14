@@ -20,7 +20,7 @@
 class CelestiaConfig
 {
 public:
-    fs::path starDatabaseFile;
+    std::vector<fs::path> starDatabaseFile;
     fs::path starNamesFile;
     std::vector<fs::path> solarSystemFiles;
     std::vector<fs::path> starCatalogFiles;
