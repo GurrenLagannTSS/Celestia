@@ -172,6 +172,31 @@ class Renderer
         ShowComets              = 0x0000000080000000,
         ShowSpacecrafts         = 0x0000000100000000,
         ShowFadingOrbits        = 0x0000000200000000,
+        ShowSolarSystemObjects  = ShowPlanets           |
+                                  ShowDwarfPlanets      |
+                                  ShowMoons             |
+                                  ShowMinorMoons        |
+                                  ShowAsteroids         |
+                                  ShowComets            |
+                                  ShowPlanetRings       |
+                                  ShowSpacecrafts,
+        ShowDeepSpaceObjects    = ShowGalaxies          |
+                                  ShowGlobulars         |
+                                  ShowNebulae           |
+                                  ShowOpenClusters,
+        DefaultRenderFlags      = ShowStars             |
+                                  ShowSolarSystemObjects|
+                                  ShowDeepSpaceObjects  |
+                                  ShowCloudMaps         |
+                                  ShowNightMaps         |
+                                  ShowAtmospheres       |
+                                  ShowEclipseShadows    |
+                                  ShowRingShadows       |
+                                  ShowCloudShadows      |
+                                  ShowCometTails        |
+                                  ShowAutoMag           |
+                                  ShowFadingOrbits      |
+                                  ShowSmoothLines
     };
 
     enum StarStyle
@@ -189,32 +214,6 @@ class Renderer
         RGB = GL_RGB,
         BGR_EXT = GL_BGR_EXT
     };
-
-    // constants
-    constexpr static const uint64_t DefaultRenderFlags =
-                                          Renderer::ShowStars          |
-                                          Renderer::ShowPlanets        |
-                                          Renderer::ShowDwarfPlanets   |
-                                          Renderer::ShowMoons          |
-                                          Renderer::ShowMinorMoons     |
-                                          Renderer::ShowAsteroids      |
-                                          Renderer::ShowComets         |
-                                          Renderer::ShowSpacecrafts    |
-                                          Renderer::ShowGalaxies       |
-                                          Renderer::ShowGlobulars      |
-                                          Renderer::ShowCloudMaps      |
-                                          Renderer::ShowNightMaps      |
-                                          Renderer::ShowAtmospheres    |
-                                          Renderer::ShowEclipseShadows |
-                                          Renderer::ShowPlanetRings    |
-                                          Renderer::ShowRingShadows    |
-                                          Renderer::ShowCloudShadows   |
-                                          Renderer::ShowCometTails     |
-                                          Renderer::ShowNebulae        |
-                                          Renderer::ShowOpenClusters   |
-                                          Renderer::ShowAutoMag        |
-                                          Renderer::ShowFadingOrbits   |
-                                          Renderer::ShowSmoothLines;
 
     uint64_t getRenderFlags() const;
     void setRenderFlags(uint64_t);
@@ -335,11 +334,10 @@ class Renderer
     void beginObjectAnnotations();
     void addObjectAnnotation(const MarkerRepresentation* markerRep, const std::string& labelText, Color, const Eigen::Vector3f&);
     void endObjectAnnotations();
-    Eigen::Quaternionf getCameraOrientation() const;
+    const Eigen::Quaternionf& getCameraOrientation() const;
     float getNearPlaneDistance() const;
 
     void clearAnnotations(std::vector<Annotation>&);
-    void clearSortedAnnotations();
 
     void invalidateOrbitCache();
 
@@ -476,6 +474,11 @@ class Renderer
     void renderEclipticLine();
     void renderCrosshair(float size, double tsec, const Color &color);
 
+    void buildNearSystemsLists(const Universe &universe,
+                               const Observer &observer,
+                               const celmath::Frustum &xfrustum,
+                               double jd);
+
     void buildRenderLists(const Eigen::Vector3d& astrocentricObserverPos,
                           const celmath::Frustum& viewFrustum,
                           const Eigen::Vector3d& viewPlaneNormal,
@@ -490,6 +493,8 @@ class Renderer
                          double now);
     void buildLabelLists(const celmath::Frustum& viewFrustum,
                          double now);
+    int buildDepthPartitions();
+
 
     void addRenderListEntries(RenderListEntry& rle,
                               Body& body,
@@ -499,10 +504,11 @@ class Renderer
                                   const Observer& observer,
                                   double now);
 
+    void removeInvisibleItems(const celmath::Frustum &frustum);
+
     void renderObject(const Eigen::Vector3f& pos,
                       float distance,
                       double now,
-                      const Eigen::Quaternionf& cameraOrientation,
                       float nearPlaneDistance,
                       float farPlaneDistance,
                       RenderProperties& obj,
@@ -513,14 +519,12 @@ class Renderer
                       float distance,
                       float appMag,
                       const Observer& observer,
-                      const Eigen::Quaternionf& cameraOrientation,
                       float, float);
 
     void renderStar(const Star& star,
                     const Eigen::Vector3f& pos,
                     float distance,
                     float appMag,
-                    const Eigen::Quaternionf& orientation,
                     double now,
                     float, float);
 
@@ -535,21 +539,12 @@ class Renderer
                          const Observer& observer,
                          float discSizeInPixels);
 
-    void renderObjectAsPoint_nosprite(const Eigen::Vector3f& center,
-                                      float radius,
-                                      float appMag,
-                                      float _faintestMag,
-                                      float discSizeInPixels,
-                                      Color color,
-                                      const Eigen::Quaternionf& cameraOrientation,
-                                      bool useHalos);
     void renderObjectAsPoint(const Eigen::Vector3f& center,
                              float radius,
                              float appMag,
                              float _faintestMag,
                              float discSizeInPixels,
                              Color color,
-                             const Eigen::Quaternionf& cameraOrientation,
                              bool useHalos,
                              bool emissive);
 
@@ -562,14 +557,13 @@ class Renderer
                                    float fade,
                                    bool lit);
 
-    void renderLocations(const Body& body,
-                         const Eigen::Vector3d& bodyPosition,
-                         const Eigen::Quaterniond& bodyOrientation);
+    void locationsToAnnotations(const Body& body,
+                                const Eigen::Vector3d& bodyPosition,
+                                const Eigen::Quaterniond& bodyOrientation);
 
     // Render an item from the render list
     void renderItem(const RenderListEntry& rle,
                     const Observer& observer,
-                    const Eigen::Quaternionf& cameraOrientation,
                     float nearPlaneDistance,
                     float farPlaneDistance);
 
@@ -581,8 +575,7 @@ class Renderer
 
     void labelConstellations(const AsterismList& asterisms,
                              const Observer& observer);
-    void renderParticles(const std::vector<Particle>& particles,
-                         const Eigen::Quaternionf& orientation);
+    void renderParticles(const std::vector<Particle>& particles);
 
 
     void addAnnotation(std::vector<Annotation>&,
@@ -594,6 +587,14 @@ class Renderer
                        LabelVerticalAlignment = VerticalAlignBottom,
                        float size = 0.0f,
                        bool special = false);
+    void renderAnnotationMarker(const Annotation &a,
+                                FontStyle fs,
+                                float depth);
+    void renderAnnotationLabel(const Annotation &a,
+                               FontStyle fs,
+                               int hOffset,
+                               int vOffset,
+                               float depth);
     void renderAnnotations(const std::vector<Annotation>&, FontStyle fs);
     void renderBackgroundAnnotations(FontStyle fs);
     void renderForegroundAnnotations(FontStyle fs);
@@ -607,10 +608,18 @@ class Renderer
                                                                   float farDist,
                                                                   FontStyle fs);
 
-    void renderMarkers(const MarkerList&,
-                       const UniversalCoord& cameraPosition,
-                       const Eigen::Quaterniond& cameraOrientation,
-                       double jd);
+    void markersToAnnotations(const MarkerList &markers,
+                              const Observer &observer,
+                              double now);
+
+    bool selectionToAnnotation(const Selection &sel,
+                               const Observer &observer,
+                               const celmath::Frustum &xfrustum,
+                               double now);
+
+    void adjustMagnitudeInsideAtmosphere(float &faintestMag,
+                                         float &saturationMag,
+                                         double now);
 
     void renderOrbit(const OrbitPathListEntry&,
                      double now,
@@ -619,9 +628,16 @@ class Renderer
                      float nearDist,
                      float farDist);
 
+    void renderSolarSystemObjects(const Observer &observer,
+                                  int nIntervals,
+                                  double now);
+
     void updateBodyVisibilityMask();
 
     void createShadowFBO();
+
+    void enableSmoothLines() const;
+    void disableSmoothLines() const;
 
 #ifdef USE_HDR
  private:
@@ -706,8 +722,9 @@ class Renderer
 
     std::vector<LightSource> lightSourceList;
 
-    Eigen::Matrix4d modelMatrix;
-    Eigen::Matrix4d projMatrix;
+    Eigen::Matrix4f m_modelMatrix;
+    Eigen::Matrix4f m_projMatrix;
+    Eigen::Matrix4f m_orthoProjMatrix;
 
     bool useCompressedTextures{ false };
     unsigned int textureResolution;
@@ -723,31 +740,6 @@ class Renderer
     };
 
     int m_GLStateFlag { 0 };
-
- public:
-#if 0
-    struct OrbitSample
-    {
-        double t;
-        Point3d pos;
-
-        OrbitSample(const Eigen::Vector3d& _pos, double _t) : t(_t), pos(_pos.x(), _pos.y(), _pos.z()) { }
-        OrbitSample() { }
-    };
-
-    struct OrbitSection
-    {
-        Capsuled boundingVolume;
-        uint32_t firstSample;
-    };
-
-    struct CachedOrbit
-    {
-        std::vector<OrbitSample> trajectory;
-        std::vector<OrbitSection> sections;
-        uint32_t lastUsed;
-    };
-#endif
 
  private:
     typedef std::map<const Orbit*, CurvePlot*> OrbitCache;
