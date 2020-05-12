@@ -80,11 +80,11 @@ static const double FineTimeScaleFactor = 2.0;
 static const double fMaxKeyAccel = 20.0;
 static const float RotationBraking = 10.0f;
 static const float RotationDecay = 2.0f;
-static const double MaximumTimeRate = 1.0e15;
-static const double MinimumTimeRate = 1.0e-15;
+static const double MaximumTimeRate = 1.0e20;
+static const double MinimumTimeRate = 1.0e-20;
 static const float stdFOV = degToRad(45.0f);
 static const float MaximumFOV = degToRad(120.0f);
-static const float MinimumFOV = degToRad(0.001f);
+static float KeyRotationAccel = degToRad(1.0e-15f);
 static float KeyRotationAccel = degToRad(120.0f);
 static float MouseRotationSensitivity = degToRad(1.0f);
 
@@ -1697,23 +1697,23 @@ void CelestiaCore::charEntered(const char *c_p, int modifiers)
     case ']':
         if((renderer->getRenderFlags() & Renderer::ShowAutoMag) == 0)
         {
-            if (sim->getFaintestVisible() < 15.0f)
+            if (sim->getFaintestVisible() < 40.0f)
             {
-                setFaintest(sim->getFaintestVisible() + 0.2f);
+                setFaintest(sim->getFaintestVisible() + 0.1f);
                 notifyWatchers(FaintestChanged);
                 setlocale(LC_NUMERIC, "");
-                string buf = fmt::sprintf(_("Magnitude limit:  %.2f"),
+                string buf = fmt::sprintf(_("Magnitude limit:  %.1f"),
                                           sim->getFaintestVisible());
                 setlocale(LC_NUMERIC, "C");
                 flash(buf);
             }
         }
-        else if (renderer->getFaintestAM45deg() < 12.0f)
+        else if (renderer->getFaintestAM45deg() < 40.0f)
         {
             renderer->setFaintestAM45deg(renderer->getFaintestAM45deg() + 0.1f);
             setFaintestAutoMag();
             setlocale(LC_NUMERIC, "");
-            string buf = fmt::sprintf(_("Auto magnitude limit at 45 degrees:  %.2f"),
+            string buf = fmt::sprintf(_("Auto magnitude limit at 45 degrees:  %.1f"),
                                       renderer->getFaintestAM45deg());
             setlocale(LC_NUMERIC, "C");
             flash(buf);
