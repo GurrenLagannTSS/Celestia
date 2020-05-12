@@ -83,7 +83,6 @@ CelestiaConfig* ReadCelestiaConfig(const fs::path& filename, CelestiaConfig *con
     configParams->getPath("DemoScript", config->demoScriptFile);
     configParams->getPath("AsterismsFile", config->asterismsFile);
     configParams->getPath("BoundariesFile", config->boundariesFile);
-    configParams->getPath("StarDatabase", config->starDatabaseFile);
     configParams->getPath("StarNameDatabase", config->starNamesFile);
     configParams->getPath("HDCrossIndex", config->HDCrossIndexFile);
     configParams->getPath("SAOCrossIndex", config->SAOCrossIndexFile);
@@ -129,6 +128,33 @@ CelestiaConfig* ReadCelestiaConfig(const fs::path& filename, CelestiaConfig *con
     config->eclipseTextureSize = getUint(configParams, "EclipseTextureSize", 128);
 
     config->consoleLogRows = getUint(configParams, "LogSize", 200);
+
+    Value* starDatabaseVal = configParams->getValue("StarDatabase");
+    if (starDatabaseVal != nullptr)
+    {
+        if (starDatabaseVal->getType() != Value::ArrayType)
+        {
+            DPRINTF(LOG_LEVEL_ERROR, "%s: StarDatabase must be an array.\n", filename);
+        }
+        else
+        {
+            Array* starDatabase = starDatabaseVal->getArray();
+            assert(starDatabase != nullptr);
+
+            for (const auto catalogNameVal : *starDatabase)
+            {
+                assert(catalogNameVal != nullptr);
+                if (catalogNameVal->getType() == Value::StringType)
+                {
+                    config->starDatabaseFiles.push_back(PathExp(catalogNameVal->getString()));
+                }
+                else
+                {
+                    DPRINTF(LOG_LEVEL_ERROR, "%s: Star database name must be a string.\n", filename);
+                }
+            }
+        }
+    }
 
     Value* solarSystemsVal = configParams->getValue("SolarSystemCatalogs");
     if (solarSystemsVal != nullptr)
