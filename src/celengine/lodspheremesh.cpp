@@ -21,7 +21,7 @@ using namespace std;
 using namespace Eigen;
 using namespace celmath;
 
-constexpr const int maxDivisions = 16384;
+constexpr const int maxDivisions = 67108864;
 constexpr const int thetaDivisions = maxDivisions;
 constexpr const int phiDivisions = maxDivisions / 2;
 constexpr const int minStep = 128;
