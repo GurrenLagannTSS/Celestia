@@ -96,7 +96,7 @@ CelestiaConfig* ReadCelestiaConfig(const fs::path& filename, CelestiaConfig *con
 
     float maxDist = 1.0;
     configParams->getNumber("SolarSystemMaxDistance", maxDist);
-    config->SolarSystemMaxDistance = min(max(maxDist, 1.0f), 10.0f);
+    config->SolarSystemMaxDistance = min(max(maxDist, 1.0f), 100000000000.0f);
 
     config->ShadowMapSize = getUint(configParams, "ShadowMapSize", 0);
 
