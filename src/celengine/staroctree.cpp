@@ -22,7 +22,7 @@ using namespace Eigen;
 // star is very faint, this estimate may not work when the star is
 // far from the barycenter. Thus, the star octree traversal will always
 // render stars with orbits that are closer than MAX_STAR_ORBIT_RADIUS.
-static const float MAX_STAR_ORBIT_RADIUS = 1.0f;
+static const float MAX_STAR_ORBIT_RADIUS = 100000000000.0f;
 
 
 // The octree node into which a star is placed is dependent on two properties:
