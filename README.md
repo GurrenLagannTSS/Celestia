@@ -1,3 +1,5 @@
+# Standard Celestia info:
+
 | **`Release`** | **`Localized`** | **`License`** | **`Contribute`** |
 |-------------------|---------------|---------------|---------------|
 |[![GitHub release](https://img.shields.io/badge/Release-v1.6.1-blue.svg)](https://celestiaproject.net/download.html) | [![Localization](https://img.shields.io/badge/Localized-85%25-green.svg)](#) | [![License](https://img.shields.io/badge/License-GPLv2-blue.svg)](https://github.com/CelestiaProject/Celestia/blob/master/COPYING) | [![Contribute](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)](#contributing) |
@@ -141,3 +143,38 @@ For pull requests, please stick to the following guidelines:
 * Follow the existing code style (e.g., indents).
 * Put a lot of comments into the code, if necessary.
 * Separate unrelated changes into multiple pull requests.
+
+
+# Enhanced Celestia info:
+
+# Welcome to Enhanced Celestia!
+The Enhanced Celestia project (Or Cel+ for short) aims to enhance Celestia itself, by adding many new features that cant be achieved by simple addons.
+**Keep in mind that Cel+ isnt an addon collection!**
+
+## Planned features
+
+### New stellar spectral types
+- Improvements will be made to existing classes
+- Missing real life classes, like WO, will be added back
+- Black holes and neutron stars will get loads of new subclasses
+- Neutron stars will get an classification system based on age, similar to white dwarfs
+- New spectral type classes include rogue planets/planemos (P) and exotic stars (E)
+- More classes coming over time
+
+### New SSC object classes
+- A wide variety of different classes, ranging from normal planet types (Chtonian, Neptuniann, and Jovian to give a few) to special classes from science fiction projects (eg. Orion's Arm, Star Trek, Star Wars, and more)
+- Moons and minor moons will also get new classes (eg. Ring Moonlet and Ring Shepherd)
+- Minor planet classes will be added as well (eg. Trojans, Hildas, NEAs, resonant objects, etc.)
+- Expansion on the surface feature and component classes will occur, for those that are looking forward to making cities
+  - Examples include observatories (eg. Hale Observatory), ancient structures (eg. The Great Pyramid of Giza), bridges, skyscrapers (eg. Burj Khalifa), and many more
+- More classes coming over time
+
+### Many suggested features and bug fixes
+Examples include:
+- Further expansion of the render limts for stars and planetary systems, for simulating the movement of entire galaxies and globular clusters
+- Increases in the zoom and magnitude limits, for observing exoplanets close-up from other star systems
+- Making Celestia calculate temperatures for planets and other objects orbiting stellar barycenters
+- **Fixing the star render bug for good**
+- Faster loading times and support for larger catalogs with tens of millions of stars
+   - A good example is the Gaia catalog
+- Many more small features and bug fixes
