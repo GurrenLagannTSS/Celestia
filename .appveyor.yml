@@ -55,7 +55,6 @@ install:
 - vcpkg install libjpeg-turbo:x86-windows
 - vcpkg remove lua:x86-windows
 - vcpkg install luajit:x86-windows
-- vcpkg install fmt:x86-windows
 - vcpkg install libepoxy:x86-windows
 - vcpkg install eigen3:x86-windows
 - vcpkg install freetype:x86-windows
