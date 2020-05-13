@@ -16,7 +16,7 @@
 #include <celmath/geomutil.h>
 
 static const double maximumSimTime = 365243360530000.365; // Around 1 trillion years from now
-static const double minimumSimTime = -5003913210752.6966435; // Around the time of the Big Bang
+static const double minimumSimTime = -730498278941.99951; // Around 2 billion years ago
 
 using namespace Eigen;
 using namespace std;
