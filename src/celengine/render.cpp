@@ -264,7 +264,7 @@ Renderer::Renderer() :
     frameCount(0),
     lastOrbitCacheFlush(0),
     minOrbitSize(MinOrbitSizeForLabel),
-    distanceLimit(1.0e6f),
+    distanceLimit(1.0e15f),
     minFeatureSize(MinFeatureSizeForLabel),
     locationFilter(~0ull),
     colorTemp(nullptr),
