@@ -80,7 +80,7 @@ build_script:
 
 after_build:
   - cmd: >-
-      cd c:\projects\enhancedcelestia\build\src\enhancedcelestia
+      cd c:\projects\enhancedcelestia\build\src\celestia
 
       7z a enhancedcelestia-win.x86.7z win32\Release\*
 
