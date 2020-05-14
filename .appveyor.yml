@@ -22,14 +22,14 @@ branches:
   - master
 
 artifacts:
-- path: '**/celestia-*.7z'
+- path: '**/enhancedcelestia-*.7z'
   name: win
 
 # Build worker image (VM template)
 image: "Visual Studio 2015"
 
 # clone directory
-clone_folder: c:\projects\celestia
+clone_folder: c:\projects\enhancedcelestia
 
 # set clone depth
 clone_depth: 1
@@ -80,18 +80,18 @@ build_script:
 
 after_build:
   - cmd: >-
-      cd c:\projects\celestia\build\src\celestia
+      cd c:\projects\enhancedcelestia\build\src\enhancedcelestia
 
-      7z a celestia-win.x86.7z win32\Release\*
+      7z a enhancedcelestia-win.x86.7z win32\Release\*
 
       windeployqt --no-angle --no-opengl-sw --no-translations --no-system-d3d-compiler qt\Release\
 
-      7z a celestia-qt.x86.7z qt\Release\*
+      7z a enhancedcelestia-qt.x86.7z qt\Release\*
 
 #on_failure:
-#- type "c:\projects\celestia\build\CMakeFiles\CMakeOutput.log"
-#- type "c:\projects\celestia\build\CMakeFiles\CMakeError.log"
-#- type "c:\projects\celestia\build\CMakeCache.txt"
+#- type "c:\projects\enhancedcelestia\build\CMakeFiles\CMakeOutput.log"
+#- type "c:\projects\enhancedcelestia\build\CMakeFiles\CMakeError.log"
+#- type "c:\projects\enhancedcelestia\build\CMakeCache.txt"
 
 # build cache to preserve files/folders between builds
 cache: c:\tools\vcpkg\installed\
