@@ -82,9 +82,11 @@ struct TextureFontPrivate
     Glyph& getGlyph(wchar_t, wchar_t);
     int toPos(wchar_t) const;
     void optimize();
+    CelestiaGLProgram* getProgram();
     void flush();
 
     const Renderer *m_renderer;
+    CelestiaGLProgram *m_prog { nullptr };
 
     FT_Face m_face;         // font face
 
@@ -95,7 +97,7 @@ struct TextureFontPrivate
     int m_texWidth;
     int m_texHeight;
 
-    GLuint m_texName;       // texture object
+    GLuint m_texName { 0 };       // texture object
     vector<Glyph> m_glyphs; // character information
     GLint m_maxTextureSize; // max supported texture size
 
@@ -104,6 +106,8 @@ struct TextureFontPrivate
 
     int m_inserted { 0 };
 
+    Eigen::Matrix4f m_MVP;
+    bool m_shaderInUse { false };
     vector<FontVertex> m_fontVertices;
 };
 
@@ -439,6 +443,14 @@ float TextureFontPrivate::render(wchar_t ch, float xoffset, float yoffset)
     return g.ax;
 }
 
+CelestiaGLProgram* TextureFontPrivate::getProgram()
+{
+    if (m_prog != nullptr)
+        return m_prog;
+    m_prog = m_renderer->getShaderManager().getShader("text");
+    return m_prog;
+}
+
 void TextureFontPrivate::flush()
 {
     if (m_fontVertices.size() < 4)
@@ -580,7 +592,7 @@ int TextureFont::getTextureName() const
 
 void TextureFont::bind()
 {
-    auto *prog = impl->m_renderer->getShaderManager().getShader("text");
+    auto *prog = impl->getProgram();
     if (prog == nullptr)
         return;
 
@@ -590,12 +602,26 @@ void TextureFont::bind()
         glBindTexture(GL_TEXTURE_2D, impl->m_texName);
         prog->use();
         prog->samplerParam("atlasTex") = 0;
+        impl->m_shaderInUse = true;
+        prog->mat4Param("MVPMatrix") = impl->m_MVP;
+    }
+}
+
+void TextureFont::setMVPMatrix(const Eigen::Matrix4f& mvp)
+{
+    impl->m_MVP = mvp;
+    auto *prog = impl->getProgram();
+    if (prog != nullptr && impl->m_shaderInUse)
+    {
+        flush();
+        prog->mat4Param("MVPMatrix") = mvp;
     }
 }
 
 void TextureFont::unbind()
 {
     flush();
+    impl->m_shaderInUse = false;
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
     glUseProgram(0);
@@ -617,11 +643,11 @@ void TextureFont::flush()
     impl->flush();
 }
 
-TextureFont* TextureFont::load(const Renderer *r, const fs::path &path, int size, int dpi)
+TextureFont* TextureFont::load(const Renderer *r, const fs::path &path, int index, int size, int dpi)
 {
     FT_Face face;
 
-    if (FT_New_Face(ft, path.string().c_str(), 0, &face) != 0)
+    if (FT_New_Face(ft, path.string().c_str(), index, &face) != 0)
     {
         fmt::fprintf(cerr, "Could not open font %s\n", path);
         return nullptr;
@@ -668,7 +694,7 @@ static fs::path ParseFontName(const fs::path &filename, int &size)
     }
 }
 
-TextureFont* LoadTextureFont(const Renderer *r, const fs::path &filename, int size, int dpi)
+TextureFont* LoadTextureFont(const Renderer *r, const fs::path &filename, int index, int size, int dpi)
 {
     if (ft == nullptr)
     {
@@ -681,5 +707,5 @@ TextureFont* LoadTextureFont(const Renderer *r, const fs::path &filename, int si
 
     int psize = 0;
     auto nameonly = ParseFontName(filename, psize);
-    return TextureFont::load(r, nameonly, psize, dpi);
+    return TextureFont::load(r, nameonly, index, size > 0 ? size : psize, dpi);
 }

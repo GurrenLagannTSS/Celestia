@@ -284,6 +284,7 @@ class CelestiaCore // : public Watchable<CelestiaCore>
     void setScreenDpi(int);
     int getDistanceToScreen() const;
     void setDistanceToScreen(int);
+    void setSafeAreaInsets(int left, int top, int right, int bottom);
 
     void setFOVFromZoom();
     void setZoomFromFOV();
@@ -324,6 +325,12 @@ class CelestiaCore // : public Watchable<CelestiaCore>
 
     void setContextMenuHandler(ContextMenuHandler*);
     ContextMenuHandler* getContextMenuHandler() const;
+
+#ifndef NO_TTF
+    void setFont(const fs::path& fontPath, int collectionIndex, int fontSize);
+    void setTitleFont(const fs::path& fontPath, int collectionIndex, int fontSize);
+    void setRendererFont(const fs::path& fontPath, int collectionIndex, int fontSize, Renderer::FontStyle fontStyle);
+#endif
 
     void toggleReferenceMark(const std::string& refMark, Selection sel = Selection());
     bool referenceMarkEnabled(const std::string& refMark, Selection sel = Selection()) const;
@@ -460,6 +467,16 @@ class CelestiaCore // : public Watchable<CelestiaCore>
 
     int screenDpi{ 96 };
     int distanceToScreen{ 400 };
+
+    struct EdgeInsets
+    {
+        int left;
+        int top;
+        int right;
+        int bottom;
+    };
+
+    EdgeInsets safeAreaInsets { 0, 0, 0, 0 };
 
     Selection lastSelection;
     string selectionNames;
