@@ -21,11 +21,7 @@
 #include "rectangle.h"
 #include "render.h"
 #include "texture.h"
-#if NO_TTF
-#include <celtxf/texturefont.h>
-#else
 #include <celttf/truetypefont.h>
-#endif
 
 using namespace std;
 using namespace Eigen;
@@ -226,7 +222,7 @@ void Overlay::restorePos()
 OverlayStreamBuf::OverlayStreamBuf()
 {
     setbuf(nullptr, 0);
-};
+}
 
 
 void OverlayStreamBuf::setOverlay(Overlay* o)

@@ -55,11 +55,7 @@
 #ifdef CELX
 #include <celephem/scriptobject.h>
 #endif
-#if NO_TTF
-#include <celtxf/texturefont.h>
-#else
 #include <celttf/truetypefont.h>
-#endif
 
 #include "imagecapture.h"
 
@@ -88,7 +84,6 @@ static const float MinimumFOV = degToRad(1.0e-15f);
 static float KeyRotationAccel = degToRad(120.0f);
 static float MouseRotationSensitivity = degToRad(1.0f);
 
-static const int ConsolePageRows = 10;
 static Console console(200, 120);
 
 static void warning(string s)
@@ -101,7 +96,8 @@ static bool is_valid_directory(const fs::path& dir)
     if (dir.empty())
         return false;
 
-    if (!is_directory(dir))
+    std::error_code ec;
+    if (!fs::is_directory(dir, ec))
     {
         fmt::fprintf(cerr, "Path %s doesn't exist or isn't a directory", dir);
         return false;
@@ -141,7 +137,6 @@ float ComputeRotationCoarseness(Simulation& sim)
 
 
 CelestiaCore::CelestiaCore() :
-    oldFOV(stdFOV),
     /* Get a renderer here so it may be queried for capabilities of the
        underlying engine even before rendering is enabled. It's initRenderer()
        routine will be called much later. */
@@ -151,7 +146,8 @@ CelestiaCore::CelestiaCore() :
 #ifdef CELX
     m_luaPlugin(make_unique<LuaScriptPlugin>(this)),
 #endif
-    m_scriptMaps(make_shared<ScriptMaps>())
+    m_scriptMaps(make_shared<ScriptMaps>()),
+    oldFOV(stdFOV)
 {
 
     for (int i = 0; i < KeyCount; i++)
@@ -164,7 +160,7 @@ CelestiaCore::CelestiaCore() :
 
     clog.rdbuf(console.rdbuf());
     cerr.rdbuf(console.rdbuf());
-    console.setWindowHeight(ConsolePageRows);
+    console.setWindowHeight(Console::PageRows);
 }
 
 CelestiaCore::~CelestiaCore()
@@ -735,28 +731,6 @@ void CelestiaCore::joystickButton(int button, bool down)
 }
 
 
-static void scrollConsole(Console& con, int lines)
-{
-    int topRow = con.getWindowRow();
-    int height = con.getHeight();
-
-    if (lines < 0)
-    {
-        if (topRow + lines > -height)
-            console.setWindowRow(topRow + lines);
-        else
-            console.setWindowRow(-(height - 1));
-    }
-    else
-    {
-        if (topRow + lines <= -ConsolePageRows)
-            console.setWindowRow(topRow + lines);
-        else
-            console.setWindowRow(-ConsolePageRows);
-    }
-}
-
-
 void CelestiaCore::keyDown(int key, int modifiers)
 {
     setViewChanged();
@@ -811,24 +785,24 @@ void CelestiaCore::keyDown(int key, int modifiers)
 
     case Key_Down:
         if (showConsole)
-            scrollConsole(console, 1);
+            console.scroll(1);
         break;
 
     case Key_Up:
         if (showConsole)
-            scrollConsole(console, -1);
+            console.scroll(-1);
         break;
 
     case Key_PageDown:
         if (showConsole)
-            scrollConsole(console, ConsolePageRows);
+            console.scroll(Console::PageRows);
         else
             back();
         break;
 
     case Key_PageUp:
         if (showConsole)
-            scrollConsole(console, -ConsolePageRows);
+            console.scroll(-Console::PageRows);
         else
             forward();
         break;
@@ -2119,8 +2093,8 @@ void CelestiaCore::draw()
         console.setFont(font);
         console.setColor(1.0f, 1.0f, 1.0f, 1.0f);
         console.begin();
-        console.moveBy(0.0f, 200.0f);
-        console.render(ConsolePageRows);
+        console.moveBy(safeAreaInsets.left, screenDpi / 25.4f * 53.0f);
+        console.render(Console::PageRows);
         console.end();
     }
 
@@ -3065,7 +3039,7 @@ void CelestiaCore::renderOverlay()
     {
         // Speed
         overlay->savePos();
-        overlay->moveBy(safeAreaInsets.left, safeAreaInsets.bottom + fontHeight * 2 + 5);
+        overlay->moveBy(safeAreaInsets.left, safeAreaInsets.bottom + fontHeight * 2 + screenDpi / 25.4f * 1.3f);
         overlay->setColor(0.7f, 0.7f, 1.0f, 1.0f);
 
         overlay->beginText();
@@ -3098,7 +3072,7 @@ void CelestiaCore::renderOverlay()
     {
         // Field of view and camera mode in lower right corner
         overlay->savePos();
-        overlay->moveBy(width - safeAreaInsets.right - emWidth * 15, safeAreaInsets.bottom + fontHeight * 3 + 5);
+        overlay->moveBy(width - safeAreaInsets.right - emWidth * 15, safeAreaInsets.bottom + fontHeight * 3 + screenDpi / 25.4f * 1.3f);
         overlay->beginText();
         overlay->setColor(0.6f, 0.6f, 1.0f, 1);
 
@@ -3190,7 +3164,7 @@ void CelestiaCore::renderOverlay()
                     // Skip displaying the English name if a localized version is present.
                     string starName = sim->getUniverse()->getStarCatalog()->getStarName(*sel.star());
                     string locStarName = sim->getUniverse()->getStarCatalog()->getStarName(*sel.star(), true);
-                    if (sel.star()->getIndex() == 0 && selectionNames.find("Sun") != string::npos && (const char*) "Sun" != _("Sun"))
+                    if (sel.star()->getIndex() == 0 && selectionNames.find("Sun") != string::npos && strcmp("Sun", _("Sun")) != 0)
                     {
                         string::size_type startPos = selectionNames.find("Sun");
                         string::size_type endPos = selectionNames.find(_("Sun"));
@@ -3360,10 +3334,10 @@ void CelestiaCore::renderOverlay()
     {
         overlay->setFont(titleFont);
         overlay->savePos();
-        Rect r(0, 0, width, 100);
+        Rect r(0, 0, width, safeAreaInsets.bottom + screenDpi / 25.4f * 26.5f);
         r.setColor(consoleColor);
         overlay->drawRectangle(r);
-        overlay->moveBy(safeAreaInsets.left, safeAreaInsets.bottom + fontHeight * 3.0f + 35.0f);
+        overlay->moveBy(safeAreaInsets.left, safeAreaInsets.bottom + fontHeight * 3.0f + screenDpi / 25.4f * 9.3f);
         overlay->setColor(0.6f, 0.6f, 1.0f, 1.0f);
         overlay->beginText();
         fmt::fprintf(*overlay, _("Target name: %s"), typedText);
@@ -3846,11 +3820,7 @@ bool CelestiaCore::initRenderer()
     }
 
     if (config->mainFont.empty())
-#if NO_TTF
-        font = LoadTextureFont(renderer, "fonts/default.txf");
-#else
         font = LoadTextureFont(renderer, "fonts/DejaVuSans.ttf,12");
-#endif
     else
         font = LoadFontHelper(renderer, config->mainFont);
 
@@ -4057,7 +4027,6 @@ CelestiaCore::ContextMenuHandler* CelestiaCore::getContextMenuHandler() const
     return contextMenuHandler;
 }
 
-#ifndef NO_TTF
 void CelestiaCore::setFont(const fs::path& fontPath, int collectionIndex, int fontSize)
 {
     font = LoadTextureFont(renderer, fontPath, collectionIndex, fontSize, screenDpi);
@@ -4079,7 +4048,6 @@ void CelestiaCore::setRendererFont(const fs::path& fontPath, int collectionIndex
         f->buildTexture();
     renderer->setFont(fontStyle, f);
 }
-#endif
 
 int CelestiaCore::getTimeZoneBias() const
 {

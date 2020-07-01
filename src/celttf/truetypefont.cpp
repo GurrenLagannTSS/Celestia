@@ -53,6 +53,8 @@ struct UnicodeBlock
 
 struct TextureFontPrivate
 {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
     struct FontVertex
     {
         FontVertex(float _x, float _y, float _u, float _v) :
@@ -178,8 +180,6 @@ void TextureFontPrivate::initCommonGlyphs()
 
 void TextureFontPrivate::computeTextureSize()
 {
-    FT_GlyphSlot g = m_face->glyph;
-
     int roww = 0;
     int rowh = 0;
     int w = 0;
@@ -211,7 +211,6 @@ void TextureFontPrivate::computeTextureSize()
 bool TextureFontPrivate::buildAtlas()
 {
     FT_GlyphSlot g = m_face->glyph;
-    Glyph c;
 
     initCommonGlyphs();
     computeTextureSize();
@@ -255,7 +254,7 @@ bool TextureFontPrivate::buildAtlas()
            continue;
         }
 
-        if (ox + g->bitmap.width > m_texWidth)
+        if (ox + int(g->bitmap.width) > int(m_texWidth))
         {
             oy += rowh;
             rowh = 0;
@@ -321,7 +320,7 @@ Glyph& TextureFontPrivate::getGlyph(wchar_t ch, wchar_t fallback)
     return g.ch == ch ? g : getGlyph(fallback);
 }
 
-Glyph g_badGlyph = {0};
+Glyph g_badGlyph = {0, 0, 0, 0, 0, 0, 0, 0.0f, 0.0f};
 Glyph& TextureFontPrivate::getGlyph(wchar_t ch)
 {
     auto pos = toPos(ch);
@@ -339,6 +338,8 @@ Glyph& TextureFontPrivate::getGlyph(wchar_t ch)
     if (!loadGlyphInfo(ch, c))
         return g_badGlyph;
 
+    flush(); // render text to avoid garbled output due to changed texture
+
     m_glyphs.push_back(c);
     if (++m_inserted == 10)
         optimize();
@@ -352,15 +353,6 @@ void TextureFontPrivate::optimize()
     m_inserted = 0;
 }
 
-
-struct FontVertex
-{
-    FontVertex(float _x, float _y, float _u, float _v) :
-        x(_x), y(_y), u(_u), v(_v)
-    {}
-    float x, y;
-    float u, v;
-};
 /*
  * Render text using the currently loaded font and currently set font size.
  * Rendering starts at coordinates (x, y), z is always 0.
@@ -678,14 +670,26 @@ TextureFont* TextureFont::load(const Renderer *r, const fs::path &path, int inde
 }
 
 // temporary while no fontconfig support
-static fs::path ParseFontName(const fs::path &filename, int &size)
+static fs::path ParseFontName(const fs::path &filename, int &collectionIndex, int &size)
 {
+    // Format with font path/collection index(if any)/font size(if any)
     auto fn = filename.string();
     auto pos = fn.rfind(',');
     if (pos != string::npos)
     {
         size = (int) stof(fn.substr(pos + 1));
-        return fn.substr(0, pos);
+        auto rest = fn.substr(0, pos);
+
+        pos = rest.rfind(',');
+        if (pos != string::npos)
+        {
+            collectionIndex = stof(rest.substr(pos + 1));
+            return rest.substr(0, pos);
+        }
+        else
+        {
+            return rest;
+        }
     }
     else
     {
@@ -706,6 +710,7 @@ TextureFont* LoadTextureFont(const Renderer *r, const fs::path &filename, int in
     }
 
     int psize = 0;
-    auto nameonly = ParseFontName(filename, psize);
-    return TextureFont::load(r, nameonly, index, size > 0 ? size : psize, dpi);
+    int pcollectionIndex = 0;
+    auto nameonly = ParseFontName(filename, pcollectionIndex, psize);
+    return TextureFont::load(r, nameonly, index > 0 ? index : pcollectionIndex, size > 0 ? size : psize, dpi);
 }

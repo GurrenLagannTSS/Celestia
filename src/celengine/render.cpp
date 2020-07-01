@@ -75,11 +75,7 @@ std::ofstream hdrlog;
 #include <celutil/utf8.h>
 #include <celutil/util.h>
 #include <celutil/timer.h>
-#if NO_TTF
-#include <celtxf/texturefont.h>
-#else
 #include <celttf/truetypefont.h>
-#endif
 #include "glsupport.h"
 #include <algorithm>
 #include <cstring>
@@ -1810,11 +1806,17 @@ void renderPoint(const Renderer &renderer,
     glEnable(GL_POINT_SPRITE);
     glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
 #endif
-    glVertexAttrib3fv(CelestiaGLProgram::VertexCoordAttributeIndex, position.data());
+    // Workaround for macOS to pass a single vertex coord
+    glEnableVertexAttribArray(CelestiaGLProgram::VertexCoordAttributeIndex);
+    glVertexAttribPointer(CelestiaGLProgram::VertexCoordAttributeIndex,
+                          3, GL_FLOAT, GL_FALSE, sizeof(position), position.data());
+
     glVertexAttrib(CelestiaGLProgram::ColorAttributeIndex, color);
     glVertexAttrib1f(CelestiaGLProgram::PointSizeAttributeIndex, useSprite ? size : 1.0f);
 
     glDrawArrays(GL_POINTS, 0, 1);
+
+    glDisableVertexAttribArray(CelestiaGLProgram::VertexCoordAttributeIndex);
 
 #ifndef GL_ES
     if (useSprite)
@@ -1831,7 +1833,7 @@ void renderPoint(const Renderer &renderer,
 // object to smooth things out, making it dimmer as the disc size exceeds the
 // max disc size.
 void Renderer::renderObjectAsPoint(const Vector3f& position,
-                                   float radius,
+                                   float /*radius*/,
                                    float appMag,
                                    float _faintestMag,
                                    float discSizeInPixels,
@@ -3163,7 +3165,8 @@ void Renderer::renderPlanet(Body& body,
     float discSizeInPixels = body.getRadius() /
         (max(nearPlaneDistance, altitude) * pixelSize);
 
-    if (discSizeInPixels > 1 && body.hasVisibleGeometry())
+    float maxDiscSize = (starStyle == ScaledDiscStars) ? MaxScaledDiscStarSize : 1.0f;
+    if (discSizeInPixels >= maxDiscSize && body.hasVisibleGeometry())
     {
         RenderProperties rp;
 
