@@ -10,16 +10,15 @@
 // as published by the Free Software Foundation; either version 2
 // of the License, or (at your option) any later version.
 
-#include "render.h"
-#include "visibleregion.h"
+#include <cmath>
+#include <Eigen/Geometry>
+#include <celmath/intersect.h>
 #include "body.h"
+#include "render.h"
 #include "selection.h"
 #include "vecgl.h"
 #include "vertexobject.h"
-#include <celmath/intersect.h>
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-#include <cmath>
+#include "visibleregion.h"
 
 using namespace Eigen;
 using namespace celmath;
@@ -166,13 +165,13 @@ VisibleRegion::render(Renderer* renderer,
     Vector3f semiAxes = m_body.getSemiAxes();
 
     // Enable depth buffering
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-    glEnable(GL_BLEND);
+    renderer->enableDepthTest();
+    renderer->enableDepthMask();
+    renderer->enableBlending();
 #ifdef USE_HDR
-    glBlendFunc(GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA);
+    renderer->setBlendingFactors(GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA);
 #else
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    renderer->setBlendingFactors(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 #endif
 
     double maxSemiAxis = m_body.getRadius();
@@ -217,10 +216,10 @@ VisibleRegion::render(Renderer* renderer,
     Matrix4f mvp = (*m.projection) * (*m.modelview) * transform.matrix();
     renderTerminator(renderer, pos, Color(m_color, opacity), mvp);
 
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    renderer->disableDepthTest();
+    renderer->disableDepthMask();
+    renderer->enableBlending();
+    renderer->setBlendingFactors(GL_SRC_ALPHA, GL_ONE);
 }
 
 

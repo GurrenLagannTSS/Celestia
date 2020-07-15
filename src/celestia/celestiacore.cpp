@@ -38,7 +38,6 @@
 #include <celutil/gettext.h>
 #include <celutil/utf8.h>
 #include <celcompat/filesystem.h>
-#include <celcompat/memory.h>
 #include <Eigen/Geometry>
 #include <iostream>
 #include <fstream>
@@ -84,7 +83,6 @@ static const float MinimumFOV = degToRad(1.0e-15f);
 static float KeyRotationAccel = degToRad(120.0f);
 static float MouseRotationSensitivity = degToRad(1.0f);
 
-static Console console(200, 120);
 
 static void warning(string s)
 {
@@ -142,12 +140,13 @@ CelestiaCore::CelestiaCore() :
        routine will be called much later. */
     renderer(new Renderer()),
     timer(new Timer()),
-    m_legacyPlugin(make_unique<LegacyScriptPlugin>(this)),
+    m_legacyPlugin(new LegacyScriptPlugin(this)),
 #ifdef CELX
-    m_luaPlugin(make_unique<LuaScriptPlugin>(this)),
+    m_luaPlugin(new LuaScriptPlugin(this)),
 #endif
-    m_scriptMaps(make_shared<ScriptMaps>()),
-    oldFOV(stdFOV)
+    m_scriptMaps(new ScriptMaps()),
+    oldFOV(stdFOV),
+    console(new Console(*renderer, 200, 120))
 {
 
     for (int i = 0; i < KeyCount; i++)
@@ -158,9 +157,9 @@ CelestiaCore::CelestiaCore() :
     for (int i = 0; i < JoyButtonCount; i++)
         joyButtonsPressed[i] = false;
 
-    clog.rdbuf(console.rdbuf());
-    cerr.rdbuf(console.rdbuf());
-    console.setWindowHeight(Console::PageRows);
+    clog.rdbuf(console->rdbuf());
+    cerr.rdbuf(console->rdbuf());
+    console->setWindowHeight(Console::PageRows);
 }
 
 CelestiaCore::~CelestiaCore()
@@ -785,24 +784,24 @@ void CelestiaCore::keyDown(int key, int modifiers)
 
     case Key_Down:
         if (showConsole)
-            console.scroll(1);
+            console->scroll(1);
         break;
 
     case Key_Up:
         if (showConsole)
-            console.scroll(-1);
+            console->scroll(-1);
         break;
 
     case Key_PageDown:
         if (showConsole)
-            console.scroll(Console::PageRows);
+            console->scroll(Console::PageRows);
         else
             back();
         break;
 
     case Key_PageUp:
         if (showConsole)
-            console.scroll(-Console::PageRows);
+            console->scroll(-Console::PageRows);
         else
             forward();
         break;
@@ -2090,12 +2089,12 @@ void CelestiaCore::draw()
     renderOverlay();
     if (showConsole)
     {
-        console.setFont(font);
-        console.setColor(1.0f, 1.0f, 1.0f, 1.0f);
-        console.begin();
-        console.moveBy(safeAreaInsets.left, screenDpi / 25.4f * 53.0f);
-        console.render(Console::PageRows);
-        console.end();
+        console->setFont(font);
+        console->setColor(1.0f, 1.0f, 1.0f, 1.0f);
+        console->begin();
+        console->moveBy(safeAreaInsets.left, screenDpi / 25.4f * 53.0f);
+        console->render(Console::PageRows);
+        console->end();
     }
 
     if (toggleAA)
@@ -2135,7 +2134,7 @@ void CelestiaCore::resize(GLsizei w, GLsizei h)
     }
     if (overlay != nullptr)
         overlay->setWindowSize(w, h);
-    console.setScale(w, h);
+    console->setScale(w, h);
     width = w;
     height = h;
 
@@ -3568,7 +3567,7 @@ bool CelestiaCore::initSimulation(const fs::path& configFileName,
 
     // Set the console log size; ignore any request to use less than 100 lines
     if (config->consoleLogRows > 100)
-        console.setRowCount(config->consoleLogRows);
+        console->setRowCount(config->consoleLogRows);
 
 #ifdef USE_SPICE
     if (!InitializeSpice())
@@ -3646,17 +3645,25 @@ bool CelestiaCore::initSimulation(const fs::path& configFileName,
     }
 
     // Next, read all the deep sky files in the extras directories
-    for (const auto& dir : config->extrasDirs)
     {
-        if (!is_valid_directory(dir))
-            continue;
-
-        DeepSkyLoader loader(dsoDB,
-                             "deep sky object",
+        vector<fs::path> entries;
+        DeepSkyLoader loader(dsoDB, "deep sky object",
                              Content_CelestiaDeepSkyCatalog,
                              progressNotifier);
-        for (const auto& fn : fs::recursive_directory_iterator(dir))
-            loader.process(fn);
+        for (const auto& dir : config->extrasDirs)
+        {
+            if (!is_valid_directory(dir))
+                continue;
+
+            entries.clear();
+            for (const auto& fn : fs::recursive_directory_iterator(dir))
+            {
+                if (!fs::is_directory(fn.path()))
+                    entries.push_back(fn.path());
+            }
+            for (const auto& fn : entries)
+                loader.process(fn);
+        }
     }
     dsoDB->finish();
     universe->setDSOCatalog(dsoDB);
@@ -3687,13 +3694,21 @@ bool CelestiaCore::initSimulation(const fs::path& configFileName,
 
     // Next, read all the solar system files in the extras directories
     {
+        vector<fs::path> entries;
+        SolarSystemLoader loader(universe, progressNotifier);
         for (const auto& dir : config->extrasDirs)
         {
             if (!is_valid_directory(dir))
                 continue;
 
-            SolarSystemLoader loader(universe, progressNotifier);
+            entries.clear();
             for (const auto& fn : fs::recursive_directory_iterator(dir))
+            {
+                if (!fs::is_directory(fn.path()))
+                    entries.push_back(fn.path());
+            }
+            sort(begin(entries), end(entries));
+            for(const auto& fn : entries)
                 loader.process(fn);
         }
     }
@@ -3948,14 +3963,24 @@ bool CelestiaCore::readStars(const CelestiaConfig& cfg,
     }
 
     // Now, read supplemental star files from the extras directories
-    for (const auto& dir : config->extrasDirs)
     {
-        if (!is_valid_directory(dir))
-            continue;
-
+        vector<fs::path> entries;
         StarLoader loader(starDB, "star", Content_CelestiaStarCatalog, progressNotifier);
-        for (const auto& fn : fs::recursive_directory_iterator(dir))
-            loader.process(fn);
+        for (const auto& dir : config->extrasDirs)
+        {
+            if (!is_valid_directory(dir))
+                continue;
+
+            entries.clear();
+            for (const auto& fn : fs::recursive_directory_iterator(dir))
+            {
+                if (!fs::is_directory(fn.path()))
+                    entries.push_back(fn.path());
+            }
+            std::sort(begin(entries), end(entries));
+            for (const auto& fn : entries)
+                loader.process(fn);
+        }
     }
 
     starDB->finish();

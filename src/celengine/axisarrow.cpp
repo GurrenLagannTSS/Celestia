@@ -11,16 +11,15 @@
 #include <algorithm>
 #include <vector>
 #include <celmath/mathlib.h>
-#include "glsupport.h"
-#include "vecgl.h"
 #include "axisarrow.h"
-#include "selection.h"
-#include "frame.h"
 #include "body.h"
-#include "timelinephase.h"
-#include "shadermanager.h"
-#include "vertexobject.h"
+#include "frame.h"
 #include "render.h"
+#include "selection.h"
+#include "shadermanager.h"
+#include "timelinephase.h"
+#include "vecgl.h"
+#include "vertexobject.h"
 
 using namespace Eigen;
 using namespace std;
@@ -261,19 +260,19 @@ ArrowReferenceMark::render(Renderer* renderer,
     if (opacity == 1.0f)
     {
         // Enable depth buffering
-        glEnable(GL_DEPTH_TEST);
-        glDepthMask(GL_TRUE);
-        glDisable(GL_BLEND);
+        renderer->enableDepthTest();
+        renderer->enableDepthMask();
+        renderer->disableBlending();
     }
     else
     {
-        glEnable(GL_DEPTH_TEST);
-        glDepthMask(GL_FALSE);
-        glEnable(GL_BLEND);
+        renderer->enableDepthTest();
+        renderer->disableDepthMask();
+        renderer->enableBlending();
 #ifdef USE_HDR
-        glBlendFunc(GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA);
+        renderer->setBlendingFactors(GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA);
 #else
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        renderer->setBlendingFactors(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 #endif
     }
 
@@ -293,10 +292,10 @@ ArrowReferenceMark::render(Renderer* renderer,
     RenderArrow(vo);
 
     glUseProgram(0);
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    renderer->disableDepthTest();
+    renderer->disableDepthMask();
+    renderer->enableBlending();
+    renderer->setBlendingFactors(GL_SRC_ALPHA, GL_ONE);
 }
 
 
@@ -345,19 +344,19 @@ AxesReferenceMark::render(Renderer* renderer,
     if (opacity == 1.0f)
     {
         // Enable depth buffering
-        glEnable(GL_DEPTH_TEST);
-        glDepthMask(GL_TRUE);
-        glDisable(GL_BLEND);
+        renderer->enableDepthTest();
+        renderer->enableDepthMask();
+        renderer->disableBlending();
     }
     else
     {
-        glEnable(GL_DEPTH_TEST);
-        glDepthMask(GL_FALSE);
-        glEnable(GL_BLEND);
+        renderer->enableDepthTest();
+        renderer->disableDepthMask();
+        renderer->enableBlending();
 #ifdef USE_HDR
-        glBlendFunc(GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA);
+        renderer->setBlendingFactors(GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA);
 #else
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        renderer->setBlendingFactors(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 #endif
     }
 
@@ -421,10 +420,10 @@ AxesReferenceMark::render(Renderer* renderer,
     RenderZ(vo);
 
     glUseProgram(0);
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    renderer->disableDepthTest();
+    renderer->disableDepthMask();
+    renderer->enableBlending();
+    renderer->setBlendingFactors(GL_SRC_ALPHA, GL_ONE);
 }
 
 
