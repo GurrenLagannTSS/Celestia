@@ -1291,7 +1291,7 @@ void Renderer::renderOrbit(const OrbitPathListEntry& orbitPath,
     }
 
     prog->use();
-    prog->MVPMatrix = *m.projection; // Skip MV as it's Identity
+    prog->setMVPMatrices(*m.projection);
     if (orbit->isPeriodic())
     {
         double period = orbit->getPeriod();
@@ -1715,9 +1715,11 @@ void Renderer::draw(const Observer& observer,
     // Set up the camera for star rendering; the units of this phase
     // are light years.
     Vector3f observerPosLY = -observer.getPosition().offsetFromLy(Vector3f::Zero());
-    Matrix4f asterismMVP = getProjectionMatrix() *
-                           getModelViewMatrix()  *
-                           vecgl::translate(observerPosLY);
+
+    Matrix4f projection = getProjectionMatrix();
+    Matrix4f modelView = getModelViewMatrix() * vecgl::translate(observerPosLY);
+
+    Matrices asterismMVP = { &projection, &modelView };
 
     float dist = observerPosLY.norm() * 1.6e4f;
     renderAsterisms(universe, dist, asterismMVP);
@@ -1800,7 +1802,7 @@ void renderPoint(const Renderer &renderer,
 
     prog->use();
     prog->samplerParam("starTex") = 0;
-    prog->mat4Param("MVPMatrix") = (*m.projection) * (*m.modelview);
+    prog->setMVPMatrices(*m.projection, *m.modelview);
 
 #ifndef GL_ES
     glEnable(GL_POINT_SPRITE);
@@ -1825,6 +1827,54 @@ void renderPoint(const Renderer &renderer,
 #endif
 }
 
+void renderLargePoint(const Renderer &renderer,
+                      const Vector3f &position,
+                      const Color &color,
+                      float size,
+                      float pixelSize,
+                      const Matrix3f &cameraOrientation,
+                      const Matrices &mvp)
+{
+    auto *prog = renderer.getShaderManager().getShader("largestar");
+    if (prog == nullptr)
+        return;
+
+    prog->use();
+    prog->samplerParam("starTex") = 0;
+    prog->setMVPMatrices(*mvp.projection, *mvp.modelview);
+    prog->vec4Param("color") = color.toVector4();
+
+    float distanceAdjust = pixelSize * position.norm() * 0.5f;
+    size *= distanceAdjust;
+
+    auto m = renderer.getCameraOrientation().conjugate().toRotationMatrix();
+    Vector3f v0 = position + (cameraOrientation * Vector3f(-1, -1, 0) * size);
+    Vector3f v1 = position + (cameraOrientation * Vector3f( 1, -1, 0) * size);
+    Vector3f v2 = position + (cameraOrientation * Vector3f( 1,  1, 0) * size);
+    Vector3f v3 = position + (cameraOrientation * Vector3f(-1,  1, 0) * size);
+
+    float quadVertices[] = {
+        // positions            // texCoords
+        v0.x(), v0.y(), v0.z(), 0.0f, 0.0f,
+        v1.x(), v1.y(), v1.z(), 1.0f, 0.0f,
+        v2.x(), v2.y(), v2.z(), 1.0f, 1.0f,
+        v3.x(), v3.y(), v3.z(), 0.0f, 1.0f
+    };
+
+    static GLubyte indices[] = { 0, 1, 2, 0, 2, 3 };
+
+    glEnableVertexAttribArray(CelestiaGLProgram::VertexCoordAttributeIndex);
+    glEnableVertexAttribArray(CelestiaGLProgram::TextureCoord0AttributeIndex);
+    glVertexAttribPointer(CelestiaGLProgram::VertexCoordAttributeIndex,
+                          3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), quadVertices);
+    glVertexAttribPointer(CelestiaGLProgram::TextureCoord0AttributeIndex,
+                          2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), quadVertices + 3);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices);
+    glDisableVertexAttribArray(CelestiaGLProgram::VertexCoordAttributeIndex);
+    glDisableVertexAttribArray(CelestiaGLProgram::TextureCoord0AttributeIndex);
+}
+
+
 // If the an object occupies a pixel or less of screen space, we don't
 // render its mesh at all and just display a starlike point instead.
 // Switching between the particle and mesh renderings of an object is
@@ -1832,14 +1882,14 @@ void renderPoint(const Renderer &renderer,
 // object to smooth things out, making it dimmer as the disc size exceeds the
 // max disc size.
 void Renderer::renderObjectAsPoint(const Vector3f& position,
-                                   float /*radius*/,
+                                   float radius,
                                    float appMag,
                                    float _faintestMag,
                                    float discSizeInPixels,
                                    const Color &color,
                                    bool useHalos,
                                    bool emissive,
-                                   const Matrices &m)
+                                   const Matrices &mvp)
 {
     const float maxSize = MaxScaledDiscStarSize;
     float maxDiscSize = (starStyle == ScaledDiscStars) ? maxSize : 1.0f;
@@ -1898,22 +1948,35 @@ void Renderer::renderObjectAsPoint(const Vector3f& position,
                 glareAlpha = min(GlareOpacity, (discScale - 2.0f) / 4.0f);
                 glareSize = pointSize * discScale * 2.0f ;
                 if (emissive)
-                    glareSize = max(glareSize, pointSize * discSizeInPixels * 3.0f);
+                    glareSize = max(glareSize, pointSize * discSizeInPixels / (screenDpi / 96.0f) * 3.0f);
             }
         }
 
         alpha *= fade;
         if (!emissive)
         {
-            glareSize = max(glareSize, pointSize * discSizeInPixels * 3.0f);
+            glareSize = max(glareSize, pointSize * discSizeInPixels / (screenDpi / 96.0f) * 3.0f);
             glareAlpha *= fade;
         }
+
+        Matrix3f m = m_cameraOrientation.conjugate().toRotationMatrix();
+        Vector3f center = position;
+
+        // Offset the glare sprite so that it lies in front of the object
+        Vector3f direction = center.normalized();
+
+        // Position the sprite on the the line between the viewer and the
+        // object, and on a plane normal to the view direction.
+        center = center + direction * (radius / (m * Vector3f::UnitZ()).dot(direction));
 
         enableDepthTest();
         bool useSprites = starStyle != PointStars;
         if (useSprites)
             gaussianDiscTex->bind();
-        renderPoint(*this, position, {color, alpha}, pointSize, useSprites, m);
+        if (pointSize > gl::maxPointSize)
+            renderLargePoint(*this, center, {color, alpha}, pointSize, pixelSize, m, mvp);
+        else
+            renderPoint(*this, center, {color, alpha}, pointSize, useSprites, mvp);
 
         // If the object is brighter than magnitude 1, add a halo around it to
         // make it appear more brilliant.  This is a hack to compensate for the
@@ -1924,7 +1987,10 @@ void Renderer::renderObjectAsPoint(const Vector3f& position,
         if (useHalos && glareAlpha > 0.0f)
         {
             gaussianGlareTex->bind();
-            renderPoint(*this, position, {color, glareAlpha}, glareSize, true, m);
+            if (glareSize > gl::maxPointSize)
+                renderLargePoint(*this, center, {color, glareAlpha}, glareSize, pixelSize, m, mvp);
+            else
+                renderPoint(*this, center, {color, glareAlpha}, glareSize, true, mvp);
         }
     }
 }
@@ -2204,7 +2270,7 @@ void Renderer::renderEllipsoidAtmosphere(const Atmosphere& atmosphere,
                           4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(SkyVertex),
                           static_cast<void*>(&skyVertices[0].color));
     prog->use();
-    prog->MVPMatrix = (*m.projection) * (*m.modelview);
+    prog->setMVPMatrices(*m.projection, *m.modelview);
     for (int i = 0; i < nRings; i++)
     {
         glDrawElements(GL_TRIANGLE_STRIP,
@@ -2251,7 +2317,7 @@ static void renderSphereUnlit(const RenderInfo& ri,
         return;
     prog->use();
 
-    prog->MVPMatrix = (*m.projection) * (*m.modelview);
+    prog->setMVPMatrices(*m.projection, *m.modelview);
     prog->textureOffset = 0.0f;
     prog->ambientColor = ri.color.toVector3();
     prog->opacity = 1.0f;
@@ -2278,7 +2344,7 @@ static void renderCloudsUnlit(const RenderInfo& ri,
     if (prog == nullptr)
         return;
     prog->use();
-    prog->MVPMatrix = (*m.projection) * (*m.modelview);
+    prog->setMVPMatrices(*m.projection, *m.modelview);
     prog->textureOffset = cloudTexOffset;
 
     g_lodSphere->render(frustum, ri.pixWidth, &cloudTex, 1);
@@ -2896,7 +2962,6 @@ void Renderer::renderObject(const Vector3f& pos,
             else
             {
                 Matrix4f mv = vecgl::rotate(getCameraOrientation());
-                Matrices mvp = { m.projection, &mv };
                 enableBlending();
                 setBlendingFactors(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -2907,7 +2972,8 @@ void Renderer::renderObject(const Vector3f& pos,
                                           ri.sunDir_eye,
                                           ls,
                                           thicknessInPixels,
-                                          lit, mvp);
+                                          lit,
+                                          { m.projection, &mv });
             }
         }
 
@@ -3669,7 +3735,7 @@ void Renderer::renderCometTail(const Body& body,
     setBlendingFactors(GL_SRC_ALPHA, GL_ONE);
 
     prog->use();
-    prog->mat4Param("MVPMatrix") = (*m.projection) * (*m.modelview) * vecgl::translate(pos);
+    prog->setMVPMatrices(*m.projection, (*m.modelview) * vecgl::translate(pos));
 
     glEnableVertexAttribArray(CelestiaGLProgram::VertexCoordAttributeIndex);
     glEnableVertexAttribArray(CelestiaGLProgram::NormalAttributeIndex);
@@ -3748,7 +3814,7 @@ void Renderer::renderReferenceMark(const ReferenceMark& refMark,
 }
 
 
-void Renderer::renderAsterisms(const Universe& universe, float dist, const Matrix4f& mvp)
+void Renderer::renderAsterisms(const Universe& universe, float dist, const Matrices& mvp)
 {
     auto *asterisms = universe.getAsterisms();
 
@@ -3778,7 +3844,7 @@ void Renderer::renderAsterisms(const Universe& universe, float dist, const Matri
 }
 
 
-void Renderer::renderBoundaries(const Universe& universe, float dist, const Matrix4f& mvp)
+void Renderer::renderBoundaries(const Universe& universe, float dist, const Matrices& mvp)
 {
     auto boundaries = universe.getBoundaries();
     if ((renderFlags & ShowBoundaries) == 0 || boundaries == nullptr)
@@ -4811,7 +4877,7 @@ Renderer::renderAnnotationMarker(const Annotation &a,
         float x = labelOffset + PixelOffset;
         float y = -labelOffset - font[fs]->getHeight() + PixelOffset;
         font[fs]->bind();
-        font[fs]->setMVPMatrix((*m.projection) * mv);
+        font[fs]->setMVPMatrices(*m.projection, mv);
         font[fs]->render(markerRep.label(), x, y);
         font[fs]->flush();
     }
@@ -4833,7 +4899,7 @@ Renderer::renderAnnotationLabel(const Annotation &a,
                                    depth);
 
     font[fs]->bind();
-    font[fs]->setMVPMatrix((*m.projection) * mv);
+    font[fs]->setMVPMatrices(*m.projection, mv);
     font[fs]->render(a.labelText, 0.0f, 0.0f);
     font[fs]->flush();
 }
@@ -5334,7 +5400,7 @@ bool Renderer::captureFrame(int x, int y, int w, int h, Renderer::PixelFormat fo
     return glGetError() == GL_NO_ERROR;
 }
 
-void Renderer::drawRectangle(const Rect &r, const Matrix4f &mvp)
+void Renderer::drawRectangle(const Rect &r, const Eigen::Matrix4f& p, const Eigen::Matrix4f& m)
 {
     ShaderProperties shadprop;
     shadprop.lightModel = ShaderProperties::UnlitModel;
@@ -5373,7 +5439,7 @@ void Renderer::drawRectangle(const Rect &r, const Matrix4f &mvp)
     }
 
     prog->use();
-    prog->MVPMatrix = mvp;
+    prog->setMVPMatrices(p, m);
 
     if (r.type != Rect::Type::BorderOnly)
     {
@@ -5441,12 +5507,18 @@ bool Renderer::getInfo(map<string, string>& info) const
     GLint maxTextureUnits = 1;
     glGetIntegerv(GL_MAX_TEXTURE_UNITS, &maxTextureUnits);
     info["MaxTextureUnits"] = to_string(maxTextureUnits);
+#endif
 
     GLint pointSizeRange[2];
+#ifdef GL_ES
+    glGetIntegerv(GL_ALIASED_POINT_SIZE_RANGE, pointSizeRange);
+#else
     glGetIntegerv(GL_SMOOTH_POINT_SIZE_RANGE, pointSizeRange);
+#endif
     info["PointSizeMin"] = to_string(pointSizeRange[0]);
     info["PointSizeMax"] = to_string(pointSizeRange[1]);
 
+#ifndef GL_ES
     GLfloat pointSizeGran = 0;
     glGetFloatv(GL_SMOOTH_POINT_SIZE_GRANULARITY, &pointSizeGran);
     info["PointSizeGran"] = fmt::sprintf("%.2f", pointSizeGran);

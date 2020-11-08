@@ -467,8 +467,7 @@ void Globular::renderGlobularPointSprites(
     tidalProg->use();
     centerTex[ic]->bind();
 
-    Matrix4f mvp = (*m.projection) * (*m.modelview);
-    tidalProg->mat4Param("MVPMatrix") = mvp;
+    tidalProg->setMVPMatrices(*m.projection, *m.modelview);
 
     Matrix3f viewMat = viewerOrientation.conjugate().toRotationMatrix();
     tidalProg->vec4Param("color")       = Vector4f(Rr, Gg, Bb, min(2 * brightness * pixelWeight, 1.0f));
@@ -492,14 +491,16 @@ void Globular::renderGlobularPointSprites(
     globProg->use();
 
     globularTex->bind();
-    globProg->mat4Param("MVPMatrix") = mvp;
-    globProg->mat4Param("ModelViewMatrix") = vecgl::translate(*m.modelview, offset);
+    globProg->setMVPMatrices(*m.projection, *m.modelview);
+    // TODO: model view matrix should not be reset here
+    globProg->ModelViewMatrix = vecgl::translate(*m.modelview, offset);
     Matrix3f mx = Scaling(form->scale) * getOrientation().toRotationMatrix() * Scaling(tidalSize);
     globProg->mat3Param("m")            = mx;
     globProg->vec3Param("offset")       = offset;
     globProg->floatParam("brightness")  = brightness;
     globProg->floatParam("pixelWeight") = pixelWeight;
     globProg->floatParam("RRatio")      = RRatio;
+    globProg->floatParam("scale")       = renderer->getScreenDpi() / 25.4f / 3.78f;
     globProg->samplerParam("starTex")   = 0;
 
     vo.draw(GL_POINTS, count, 4);

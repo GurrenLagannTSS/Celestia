@@ -230,6 +230,9 @@ bool Galaxy::pick(const Ray3d& ray,
                   double& distanceToPicker,
                   double& cosAngleToBoundCenter) const
 {
+    if (form == nullptr)
+        return false;
+
     if (!isVisible())
         return false;
 
@@ -296,10 +299,10 @@ static void draw(const GalaxyVertex *v, size_t count, const GLushort *indices)
 {
     glVertexAttribPointer(CelestiaGLProgram::VertexCoordAttributeIndex,
                           4, GL_FLOAT, GL_FALSE,
-                          sizeof(GalaxyVertex), &v->position);
+                          sizeof(GalaxyVertex), v->position.data());
     glVertexAttribPointer(CelestiaGLProgram::TextureCoord0AttributeIndex,
                           4, GL_SHORT, GL_FALSE,
-                          sizeof(GalaxyVertex), &v->texCoord);
+                          sizeof(GalaxyVertex), v->texCoord.data());
     glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_SHORT, indices);
 }
 
@@ -414,7 +417,7 @@ void Galaxy::renderGalaxyPointSprites(const Vector3f& offset,
     GLushort j = 0;
 
     prog->use();
-    prog->mat4Param("MVPMatrix") = (*ms.projection) * mv;
+    prog->setMVPMatrices(*ms.projection, mv);
     prog->samplerParam("galaxyTex") = 0;
     prog->samplerParam("colorTex") = 1;
 

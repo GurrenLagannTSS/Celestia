@@ -21,6 +21,7 @@
 #include <celengine/render.h>
 #include <celengine/simulation.h>
 #include <celengine/overlayimage.h>
+#include <celengine/viewporteffect.h>
 #include "configfile.h"
 #include "favorites.h"
 #include "destination.h"
@@ -210,6 +211,7 @@ class CelestiaCore // : public Watchable<CelestiaCore>
     void joystickButton(int button, bool down);
     void resize(GLsizei w, GLsizei h);
     void draw();
+    void draw(View*);
     void tick();
 
     Simulation* getSimulation() const;
@@ -284,6 +286,8 @@ class CelestiaCore // : public Watchable<CelestiaCore>
     int getDistanceToScreen() const;
     void setDistanceToScreen(int);
     void setSafeAreaInsets(int left, int top, int right, int bottom);
+    float getPickTolerance() const;
+    void setPickTolerance(float);
 
     void setFOVFromZoom();
     void setZoomFromFOV();
@@ -324,6 +328,16 @@ class CelestiaCore // : public Watchable<CelestiaCore>
 
     void setContextMenuHandler(ContextMenuHandler*);
     ContextMenuHandler* getContextMenuHandler() const;
+
+    class TextDisplayCallback
+    {
+    public:
+        virtual ~TextDisplayCallback() = default;
+        virtual void willShowText(const std::string&, double) = 0;
+    };
+
+    void setTextDisplayCallback(TextDisplayCallback*);
+    TextDisplayCallback* getTextDisplayCallback() const;
 
     void setFont(const fs::path& fontPath, int collectionIndex, int fontSize);
     void setTitleFont(const fs::path& fontPath, int collectionIndex, int fontSize);
@@ -451,6 +465,7 @@ class CelestiaCore // : public Watchable<CelestiaCore>
     CursorHandler* cursorHandler{ nullptr };
     CursorShape defaultCursorShape{ CelestiaCore::CrossCursor };
     ContextMenuHandler* contextMenuHandler{ nullptr };
+    TextDisplayCallback* textDisplayCallback{ nullptr };
 
     std::vector<Url*> history;
     std::vector<Url*>::size_type historyCurrent{ 0 };
@@ -464,6 +479,11 @@ class CelestiaCore // : public Watchable<CelestiaCore>
 
     int screenDpi{ 96 };
     int distanceToScreen{ 400 };
+
+    float pickTolerance { 4.0f };
+
+    unique_ptr<ViewportEffect> viewportEffect { nullptr };
+    bool isViewportEffectUsed { false };
 
     struct EdgeInsets
     {
