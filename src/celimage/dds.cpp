@@ -1,6 +1,7 @@
 // dds.cpp
 //
-// Copyright (C) 2001, Chris Laurel
+// Copyright (C) 2001-present, the Celestia Development Team
+// Original version by Chris Laurel <claurel@shatters.net>
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -11,10 +12,10 @@
 #include <fstream>
 #include <algorithm>
 #include <memory>
+#include <celengine/glsupport.h>
+#include <celengine/image.h>
 #include <celutil/debug.h>
 #include <celutil/bytes.h>
-#include <celengine/image.h>
-#include "glsupport.h"
 #include "dds_decompress.h"
 
 using namespace celestia;
@@ -241,7 +242,7 @@ Image* LoadDDSImage(const fs::path& filename)
             // DXTc texture not supported, decompress DXTc to RGBA
             uint32_t *pixels = nullptr;
             bool transparent0 = format == GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
-            if ((ddsd.width & 3 != 0) || (ddsd.height & 3 != 0))
+            if ((ddsd.width & 3) != 0 || (ddsd.height & 3) != 0)
             {
                 uint32_t nw = max(ddsd.width, 4u);
                 uint32_t nh = max(ddsd.height, 4u);

@@ -1880,7 +1880,8 @@ void CelestiaCore::start(double t)
         // using the KdeAlerter in runScript would create an infinite loop,
         // break it here by resetting config->initScriptFile:
         fs::path filename(config->initScriptFile);
-        config->initScriptFile = {};
+        // Don't use {} as it will throw error C2593 on MSVC
+        config->initScriptFile = fs::path();
         runScript(filename);
     }
 
@@ -1899,7 +1900,8 @@ void CelestiaCore::setStartURL(const string &url)
     if (!url.substr(0, 4).compare("cel:"))
     {
         startURL = url;
-        config->initScriptFile = {};
+        // Don't use {} as it will throw error C2593 on MSVC
+        config->initScriptFile = fs::path();
     }
     else
     {
@@ -4686,22 +4688,11 @@ bool CelestiaCore::saveScreenShot(const fs::path& filename, ContentType type) co
     array<int, 4> viewport;
     getRenderer()->getViewport(viewport);
 
-    if (type == Content_JPEG)
-    {
-        return CaptureGLBufferToJPEG(filename,
-                                     viewport[0], viewport[1],
-                                     viewport[2], viewport[3],
-                                     getRenderer());
-    }
-    if (type == Content_PNG)
-    {
-        return CaptureGLBufferToPNG(filename,
-                                    viewport[0], viewport[1],
-                                    viewport[2], viewport[3],
-                                    getRenderer());
-    }
-
-    return false;
+    return CaptureBufferToFile(filename,
+                               viewport[0], viewport[1],
+                               viewport[2], viewport[3],
+                               getRenderer(),
+                               type);
 }
 
 void CelestiaCore::setLogFile(fs::path &fn)
