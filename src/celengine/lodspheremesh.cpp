@@ -25,7 +25,7 @@ using namespace std;
 //#define VERTEX_BUFFER_OBJECTS_ENABLED
 
 static bool trigArraysInitialized = false;
-static int maxDivisions = 16384;
+static int maxDivisions = 67108864;
 static int thetaDivisions = maxDivisions;
 static int phiDivisions = maxDivisions / 2;
 static int minStep = 128;
