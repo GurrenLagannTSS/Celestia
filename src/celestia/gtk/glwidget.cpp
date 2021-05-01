@@ -12,7 +12,11 @@
 
 #include <gdk/gdkkeysyms.h>
 #include <gtk/gtk.h>
+#ifdef GTKGLEXT
 #include <gtk/gtkgl.h>
+#else
+#include "gtkegl.h"
+#endif
 
 #include <celestia/celestiacore.h>
 
@@ -24,7 +28,11 @@
 /* Declarations: Callbacks */
 static gint glarea_idle(AppData* app);
 static gint glarea_configure(GtkWidget* widget, GdkEventConfigure*, AppData* app);
+#if GTK_MAJOR_VERSION == 2
 static gint glarea_expose(GtkWidget* widget, GdkEventExpose* event, AppData* app);
+#else
+static gint glarea_draw(GtkWidget*, cairo_t*, AppData* app);
+#endif
 static gint glarea_motion_notify(GtkWidget*, GdkEventMotion* event, AppData* app);
 static gint glarea_mouse_scroll(GtkWidget*, GdkEventScroll* event, AppData* app);
 static gint glarea_button_press(GtkWidget*, GdkEventButton* event, AppData* app);
@@ -40,8 +48,13 @@ static bool handleSpecialKey(int key, int state, bool down, AppData* app);
 /* ENTRY: Initialize/Bind all glArea Callbacks */
 void initGLCallbacks(AppData* app)
 {
+#if GTK_MAJOR_VERSION == 2
     g_signal_connect(G_OBJECT(app->glArea), "expose_event",
                      G_CALLBACK(glarea_expose), app);
+#else
+    g_signal_connect(G_OBJECT(app->glArea), "draw",
+                     G_CALLBACK(glarea_draw), app);
+#endif
     g_signal_connect(G_OBJECT(app->glArea), "configure_event",
                      G_CALLBACK(glarea_configure), app);
     g_signal_connect(G_OBJECT(app->glArea), "button_press_event",
@@ -74,11 +87,16 @@ static gint glarea_idle(AppData* app)
 /* CALLBACK: GL Function for event "configure_event" */
 static gint glarea_configure(GtkWidget* widget, GdkEventConfigure*, AppData* app)
 {
+#ifdef GTKGLEXT
     GdkGLContext *glcontext = gtk_widget_get_gl_context (widget);
     GdkGLDrawable *gldrawable = gtk_widget_get_gl_drawable (widget);
 
     if (!gdk_gl_drawable_gl_begin (gldrawable, glcontext))
         return FALSE;
+#else
+    if (!gtk_egl_drawable_make_current(widget))
+        return FALSE;
+#endif
 
     GtkAllocation allocation;
     gtk_widget_get_allocation(GTK_WIDGET(widget), &allocation);
@@ -86,12 +104,14 @@ static gint glarea_configure(GtkWidget* widget, GdkEventConfigure*, AppData* app
 
     /* GConf changes only saved upon exit, since caused a lot of CPU activity
      * while saving intermediate steps. */
-
+#ifdef GTKGLEXT
     gdk_gl_drawable_gl_end (gldrawable);
+#endif
     return TRUE;
 }
 
 
+#if GTK_MAJOR_VERSION == 2
 /* CALLBACK: GL Function for event "expose_event" */
 static gint glarea_expose(GtkWidget*, GdkEventExpose* event, AppData* app)
 {
@@ -102,6 +122,13 @@ static gint glarea_expose(GtkWidget*, GdkEventExpose* event, AppData* app)
     /* Redraw -- draw checks are made in function */
     return glDrawFrame(app);
 }
+#else
+/* CALLBACK: GL Function for event "draw" */
+static gint glarea_draw(GtkWidget*, cairo_t*, AppData* app)
+{
+    return glDrawFrame(app);
+}
+#endif
 
 
 /* CALLBACK: GL Function for event "motion_notify_event" */
@@ -241,19 +268,30 @@ static gint glarea_key_release(GtkWidget* widget, GdkEventKey* event, AppData* a
  *         If everything checks out, call appCore->draw() */
 static gint glDrawFrame(AppData* app)
 {
+#ifdef GTKGLEXT
     GdkGLContext *glcontext = gtk_widget_get_gl_context(app->glArea);
     GdkGLDrawable *gldrawable = gtk_widget_get_gl_drawable(app->glArea);
 
     if (!gdk_gl_drawable_gl_begin(gldrawable, glcontext))
         return FALSE;
+#else
+    if (!gtk_egl_drawable_make_current(app->glArea))
+        return FALSE;
+#endif
 
     if (app->bReady)
     {
         app->core->draw();
+#ifdef GTKGLEXT
         gdk_gl_drawable_swap_buffers(GDK_GL_DRAWABLE(gldrawable));
+#else
+        gtk_egl_drawable_swap_buffers(app->glArea);
+#endif
     }
 
+#ifdef GTKGLEXT
     gdk_gl_drawable_gl_end(gldrawable);
+#endif
     return TRUE;
 }
 
