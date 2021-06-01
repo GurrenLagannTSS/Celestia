@@ -62,10 +62,6 @@
 
 #include "imagecapture.h"
 
-// TODO: proper gettext
-#define C_(a, b) (b)
-
-
 using namespace Eigen;
 using namespace std;
 using namespace astro::literals;
@@ -104,7 +100,7 @@ static bool is_valid_directory(const fs::path& dir)
     std::error_code ec;
     if (!fs::is_directory(dir, ec))
     {
-        fmt::fprintf(cerr, "Path %s doesn't exist or isn't a directory", dir);
+        fmt::fprintf(cerr, _("Path %s doesn't exist or isn't a directory"), dir);
         return false;
     }
 
@@ -332,21 +328,21 @@ void CelestiaCore::cancelScript()
 }
 
 
-void CelestiaCore::runScript(const fs::path& filename)
+void CelestiaCore::runScript(const fs::path& filename, bool i18n)
 {
     cancelScript();
-    auto localeFilename = LocaleFilename(filename);
+    auto maybeLocaleFilename = i18n ? LocaleFilename(filename) : filename;
 
-    if (m_legacyPlugin->isOurFile(localeFilename))
+    if (m_legacyPlugin->isOurFile(maybeLocaleFilename))
     {
-        m_script = m_legacyPlugin->loadScript(localeFilename);
+        m_script = m_legacyPlugin->loadScript(maybeLocaleFilename);
         if (m_script != nullptr)
             scriptState = sim->getPauseState() ? ScriptPaused : ScriptRunning;
     }
 #ifdef CELX
-    else if (m_luaPlugin->isOurFile(localeFilename))
+    else if (m_luaPlugin->isOurFile(maybeLocaleFilename))
     {
-        m_script = m_luaPlugin->loadScript(localeFilename);
+        m_script = m_luaPlugin->loadScript(maybeLocaleFilename);
         if (m_script != nullptr)
             scriptState = sim->getPauseState() ? ScriptPaused : ScriptRunning;
     }
@@ -959,7 +955,7 @@ void CelestiaCore::charEntered(const char *c_p, int modifiers)
                     typedText = string(typedText, 0, typedText.size() - 1);
                     if (typedText.size() > 0)
                     {
-                        typedTextCompletion = sim->getObjectCompletion(typedText, (renderer->getLabelMode() & Renderer::LocationLabels) != 0);
+                        typedTextCompletion = sim->getObjectCompletion(typedText, true, (renderer->getLabelMode() & Renderer::LocationLabels) != 0);
                     } else {
                         typedTextCompletion.clear();
                     }
@@ -1124,7 +1120,7 @@ void CelestiaCore::charEntered(const char *c_p, int modifiers)
             }
             else
             {
-                MarkerRepresentation markerRep(MarkerRepresentation::Diamond);
+                celestia::MarkerRepresentation markerRep(celestia::MarkerRepresentation::Diamond);
                 markerRep.setSize(10.0f);
                 markerRep.setColor({0.0f, 1.0f, 0.0f, 0.9f});
 
@@ -1189,7 +1185,7 @@ void CelestiaCore::charEntered(const char *c_p, int modifiers)
                 switch (newPath)
                 {
                 case GLContext::GLPath_GLSL:
-                    flash(_("Render path: OpenGL 2.0"));
+                    flash(_("Render path: OpenGL 2.1"));
                     break;
                 }
                 context->setRenderPath(newPath);
@@ -3205,7 +3201,7 @@ void CelestiaCore::renderOverlay()
         if (!sim->getTrackedObject().empty())
         {
             fmt::fprintf(*overlay, _("Track %s\n"),
-                         C_("Track", getSelectionName(sim->getTrackedObject(), *u)));
+                         CX_("Track", getSelectionName(sim->getTrackedObject(), *u)));
         }
         else
         {
@@ -3221,21 +3217,21 @@ void CelestiaCore::renderOverlay()
             {
             case ObserverFrame::Ecliptical:
                 fmt::fprintf(*overlay, _("Follow %s\n"),
-                             C_("Follow", getSelectionName(refObject, *u)));
+                             CX_("Follow", getSelectionName(refObject, *u)));
                 break;
             case ObserverFrame::BodyFixed:
                 fmt::fprintf(*overlay, _("Sync Orbit %s\n"),
-                             C_("Sync", getSelectionName(refObject, *u)));
+                             CX_("Sync", getSelectionName(refObject, *u)));
                 break;
             case ObserverFrame::PhaseLock:
                 fmt::fprintf(*overlay, _("Lock %s -> %s\n"),
-                             C_("Lock", getSelectionName(refObject, *u)),
-                             C_("LockTo", getSelectionName(sim->getFrame()->getTargetObject(), *u)));
+                             CX_("Lock", getSelectionName(refObject, *u)),
+                             CX_("LockTo", getSelectionName(sim->getFrame()->getTargetObject(), *u)));
                 break;
 
             case ObserverFrame::Chase:
                 fmt::fprintf(*overlay, _("Chase %s\n"),
-                             C_("Chase", getSelectionName(refObject, *u)));
+                             CX_("Chase", getSelectionName(refObject, *u)));
                 break;
 
             default:
@@ -3273,20 +3269,6 @@ void CelestiaCore::renderOverlay()
                 {
                     lastSelection = sel;
                     selectionNames = sim->getUniverse()->getStarCatalog()->getStarNameList(*sel.star());
-                    // Skip displaying the English name if a localized version is present.
-                    string starName = sim->getUniverse()->getStarCatalog()->getStarName(*sel.star());
-                    string locStarName = sim->getUniverse()->getStarCatalog()->getStarName(*sel.star(), true);
-                    if (sel.star()->getIndex() == 0 && selectionNames.find("Sun") != string::npos && strcmp("Sun", _("Sun")) != 0)
-                    {
-                        string::size_type startPos = selectionNames.find("Sun");
-                        string::size_type endPos = selectionNames.find(_("Sun"));
-                        selectionNames = selectionNames.erase(startPos, endPos - startPos);
-                    }
-                    else if (selectionNames.find(starName) != string::npos && starName != locStarName)
-                    {
-                        string::size_type startPos = selectionNames.find(locStarName);
-                        selectionNames = selectionNames.substr(startPos);
-                    }
                 }
 
                 overlay->setFont(titleFont);
@@ -3447,7 +3429,7 @@ void CelestiaCore::renderOverlay()
         overlay->setFont(titleFont);
         overlay->savePos();
         int rectHeight = fontHeight * 3.0f + screenDpi / 25.4f * 9.3f + titleFontHeight;
-        Rect r(0, 0, width, safeAreaInsets.bottom + rectHeight);
+        celestia::Rect r(0, 0, width, safeAreaInsets.bottom + rectHeight);
         r.setColor(consoleColor);
         overlay->drawRectangle(r);
         overlay->moveBy(safeAreaInsets.left, safeAreaInsets.bottom + rectHeight - titleFontHeight);
@@ -3530,12 +3512,12 @@ void CelestiaCore::renderOverlay()
         overlay->savePos();
         Color color(1.0f, 0.0f, 0.0f, 1.0f);
         overlay->setColor(color);
-        Rect r((width - movieWidth) / 2 - 1,
+        celestia::Rect r((width - movieWidth) / 2 - 1,
                (height - movieHeight) / 2 - 1,
                movieWidth + 1,
                movieHeight + 1);
         r.setColor(color);
-        r.setType(Rect::Type::BorderOnly);
+        r.setType(celestia::Rect::Type::BorderOnly);
         overlay->drawRectangle(r);
         overlay->moveBy((float) ((width - movieWidth) / 2),
                         (float) ((height + movieHeight) / 2 + 2));
@@ -3613,7 +3595,7 @@ class SolarSystemLoader
 
         if (find(begin(skip), end(skip), filepath) != end(skip))
         {
-            fmt::fprintf(clog, _("Skipping skiped solar system catalog: %s\n"), filepath.string());
+            fmt::fprintf(clog, _("Skipping solar system catalog: %s\n"), filepath.string());
             return;
         }
         fmt::fprintf(clog, _("Loading solar system catalog: %s\n"), filepath.string());
@@ -3659,7 +3641,7 @@ template <class OBJDB> class CatalogLoader
 
         if (find(begin(skip), end(skip), filepath) != end(skip))
         {
-            fmt::fprintf(clog, _("Skipping skiped %s catalog: %s\n"), typeDesc, filepath.string());
+            fmt::fprintf(clog, _("Skipping %s catalog: %s\n"), typeDesc, filepath.string());
             return;
         }
         fmt::fprintf(clog, _("Loading %s catalog: %s\n"), typeDesc, filepath.string());
@@ -3794,12 +3776,16 @@ bool CelestiaCore::initSimulation(const fs::path& configFileName,
                 continue;
 
             entries.clear();
-            for (const auto& fn : fs::recursive_directory_iterator(dir))
+            std::error_code ec;
+            auto iter = fs::recursive_directory_iterator(dir, ec);
+            for (; iter != end(iter); iter.increment(ec))
             {
-                std::error_code ec;
-                if (!fs::is_directory(fn.path(), ec))
-                    entries.push_back(fn.path());
+                if (ec)
+                    continue;
+                if (!fs::is_directory(iter->path(), ec))
+                    entries.push_back(iter->path());
             }
+            std::sort(begin(entries), end(entries));
             for (const auto& fn : entries)
                 loader.process(fn);
         }
@@ -3841,11 +3827,14 @@ bool CelestiaCore::initSimulation(const fs::path& configFileName,
                 continue;
 
             entries.clear();
-            for (const auto& fn : fs::recursive_directory_iterator(dir))
+            std::error_code ec;
+            auto iter = fs::recursive_directory_iterator(dir, ec);
+            for (; iter != end(iter); iter.increment(ec))
             {
-                std::error_code ec;
-                if (!fs::is_directory(fn.path(), ec))
-                    entries.push_back(fn.path());
+                if (ec)
+                    continue;
+                if (!fs::is_directory(iter->path(), ec))
+                    entries.push_back(iter->path());
             }
             sort(begin(entries), end(entries));
             for(const auto& fn : entries)
@@ -3958,7 +3947,7 @@ bool CelestiaCore::initSimulation(const fs::path& configFileName,
     return true;
 }
 
-static TextureFont*
+static std::shared_ptr<TextureFont>
 LoadFontHelper(const Renderer* renderer, const fs::path& p)
 {
     if (p.is_absolute())
@@ -4035,7 +4024,7 @@ bool CelestiaCore::initRenderer()
     }
     else
     {
-        TextureFont* labelFont = LoadFontHelper(renderer, config->labelFont);
+        auto labelFont = LoadFontHelper(renderer, config->labelFont);
         if (labelFont == nullptr)
         {
             renderer->setFont(Renderer::FontNormal, font);
@@ -4150,11 +4139,14 @@ bool CelestiaCore::readStars(const CelestiaConfig& cfg,
                 continue;
 
             entries.clear();
-            for (const auto& fn : fs::recursive_directory_iterator(dir))
+            std::error_code ec;
+            auto iter = fs::recursive_directory_iterator(dir, ec);
+            for (; iter != end(iter); iter.increment(ec))
             {
-                std::error_code ec;
-                if (!fs::is_directory(fn.path(), ec))
-                    entries.push_back(fn.path());
+                if (ec)
+                    continue;
+                if (!fs::is_directory(iter->path(), ec))
+                    entries.push_back(iter->path());
             }
             std::sort(begin(entries), end(entries));
             for (const auto& fn : entries)
@@ -4261,6 +4253,27 @@ void CelestiaCore::setRendererFont(const fs::path& fontPath, int collectionIndex
     if (f != nullptr)
         f->buildTexture();
     renderer->setFont(fontStyle, f);
+}
+
+void CelestiaCore::clearFonts()
+{
+    dateStrWidth = 0;
+
+    if (overlay)
+        overlay->setFont(nullptr);
+    if (console)
+        console->setFont(nullptr);
+
+    titleFont = nullptr;
+    font = nullptr;
+
+    if (renderer)
+    {
+        for (int i = Renderer::FontNormal; i < Renderer::FontCount; i += 1)
+        {
+            renderer->setFont((Renderer::FontStyle)i, nullptr);
+        }
+    }
 }
 
 int CelestiaCore::getTimeZoneBias() const
@@ -4648,7 +4661,7 @@ bool CelestiaCore::initLuaHook(ProgressNotifier* progressNotifier)
 void CelestiaCore::setTypedText(const char *c_p)
 {
     typedText += string(c_p);
-    typedTextCompletion = sim->getObjectCompletion(typedText, (renderer->getLabelMode() & Renderer::LocationLabels) != 0);
+    typedTextCompletion = sim->getObjectCompletion(typedText, true, (renderer->getLabelMode() & Renderer::LocationLabels) != 0);
     typedTextCompletionIdx = -1;
 #ifdef AUTO_COMPLETION
     if (typedTextCompletion.size() == 1)

@@ -299,7 +299,7 @@ Renderer::Renderer() :
 
     for (int i = 0; i < (int) FontCount; i++)
     {
-        font[i] = nullptr;
+        fonts[i] = nullptr;
     }
 
     shaderManager = new ShaderManager();
@@ -759,14 +759,14 @@ void Renderer::setResolution(unsigned int resolution)
 }
 
 
-TextureFont* Renderer::getFont(FontStyle fs) const
+std::shared_ptr<TextureFont> Renderer::getFont(FontStyle fs) const
 {
-    return font[(int) fs];
+    return fonts[(int) fs];
 }
 
-void Renderer::setFont(FontStyle fs, TextureFont* txf)
+void Renderer::setFont(FontStyle fs, const std::shared_ptr<TextureFont>& font)
 {
-    font[(int) fs] = txf;
+    fonts[(int) fs] = font;
     markSettingsChanged();
 }
 
@@ -914,7 +914,7 @@ void Renderer::setDistanceLimit(float distanceLimit_)
 
 
 void Renderer::addAnnotation(vector<Annotation>& annotations,
-                             const MarkerRepresentation* markerRep,
+                             const celestia::MarkerRepresentation* markerRep,
                              const string& labelText,
                              Color color,
                              const Vector3f& pos,
@@ -954,7 +954,7 @@ void Renderer::addAnnotation(vector<Annotation>& annotations,
 }
 
 
-void Renderer::addForegroundAnnotation(const MarkerRepresentation* markerRep,
+void Renderer::addForegroundAnnotation(const celestia::MarkerRepresentation* markerRep,
                                        const string& labelText,
                                        Color color,
                                        const Vector3f& pos,
@@ -966,7 +966,7 @@ void Renderer::addForegroundAnnotation(const MarkerRepresentation* markerRep,
 }
 
 
-void Renderer::addBackgroundAnnotation(const MarkerRepresentation* markerRep,
+void Renderer::addBackgroundAnnotation(const celestia::MarkerRepresentation* markerRep,
                                        const string& labelText,
                                        Color color,
                                        const Vector3f& pos,
@@ -978,7 +978,7 @@ void Renderer::addBackgroundAnnotation(const MarkerRepresentation* markerRep,
 }
 
 
-void Renderer::addSortedAnnotation(const MarkerRepresentation* markerRep,
+void Renderer::addSortedAnnotation(const celestia::MarkerRepresentation* markerRep,
                                    const string& labelText,
                                    Color color,
                                    const Vector3f& pos,
@@ -1039,7 +1039,7 @@ void Renderer::endObjectAnnotations()
 }
 
 
-void Renderer::addObjectAnnotation(const MarkerRepresentation* markerRep,
+void Renderer::addObjectAnnotation(const celestia::MarkerRepresentation* markerRep,
                                    const string& labelText,
                                    Color color,
                                    const Vector3f& pos)
@@ -2511,7 +2511,7 @@ Renderer::locationsToAnnotations(const Body& body,
                     double z = viewNormal.dot(labelPos);
                     labelPos *= planetZ / z;
 
-                    MarkerRepresentation* locationMarker = nullptr;
+                    celestia::MarkerRepresentation* locationMarker = nullptr;
                     if (featureType & Location::City)
                         locationMarker = &cityRep;
                     else if (featureType & (Location::LandingSite | Location::Observatory))
@@ -2812,24 +2812,35 @@ void Renderer::renderObject(const Vector3f& pos,
     // support.)
     float radius = obj.radius;
     Vector3f scaleFactors;
+    float ringsScaleFactor;
     float geometryScale;
     if (geometry == nullptr || geometry->isNormalized())
     {
         geometryScale = obj.radius;
         scaleFactors = obj.radius * obj.semiAxes;
+        ringsScaleFactor = obj.radius * obj.semiAxes.maxCoeff();
         ri.pointScale = 2.0f * obj.radius / pixelSize * screenDpi / 96.0f;
     }
     else
     {
         geometryScale = obj.geometryScale;
         scaleFactors = Vector3f::Constant(geometryScale);
+        ringsScaleFactor = geometryScale;
         ri.pointScale = 2.0f * geometryScale / pixelSize * screenDpi / 96.0f;
     }
     // Apply the modelview transform for the object
-    Affine3f transform = Translation3f(pos) * obj.orientation.conjugate() * Scaling(scaleFactors);
-    Matrix4f mv = (*m.modelview) * transform.matrix();
+    Affine3f transform = Translation3f(pos) * obj.orientation.conjugate();
+    Matrix4f planetMV  = (*m.modelview) * (transform * Scaling(scaleFactors)).matrix();
+    Matrices planetMVP = { m.projection, &planetMV };
 
-    Matrices mvp = { m.projection, &mv };
+    Matrices ringsMVP;
+    Matrix4f ringsMV;
+    bool showRings = obj.rings != nullptr && (renderFlags & ShowPlanetRings) != 0;
+    if (showRings)
+    {
+        ringsMV  = (*m.modelview) * (transform * Scaling(ringsScaleFactor)).matrix();
+        ringsMVP = { m.projection, &ringsMV  };
+    }
 
     Matrix3f planetRotation = obj.orientation.toRotationMatrix();
 
@@ -2945,11 +2956,11 @@ void Renderer::renderObject(const Vector3f& pos,
                                  renderFlags,
                                  obj.orientation,
                                  viewFrustum,
-                                 mvp, this);
+                                 planetMVP, this);
         }
         else
         {
-            renderSphereUnlit(ri, viewFrustum, mvp, this);
+            renderSphereUnlit(ri, viewFrustum, planetMVP, this);
         }
     }
     else
@@ -2969,7 +2980,7 @@ void Renderer::renderObject(const Vector3f& pos,
                                     renderFlags,
                                     obj.orientation,
                                     astro::daysToSecs(now - astro::J2000),
-                                    mvp, this);
+                                    planetMVP, this);
             }
             else
             {
@@ -2980,14 +2991,14 @@ void Renderer::renderObject(const Vector3f& pos,
                                           renderFlags,
                                           obj.orientation,
                                           astro::daysToSecs(now - astro::J2000),
-                                          mvp, this);
+                                          planetMVP, this);
             }
             glActiveTexture(GL_TEXTURE0);
         }
     }
 
     float segmentSizeInPixels = 0.0f;
-    if (obj.rings != nullptr && (renderFlags & ShowPlanetRings) != 0)
+    if (showRings)
     {
         // calculate ring segment size in pixels, actual size is segmentSizeInPixels * tan(segmentAngle)
         segmentSizeInPixels = 2.0f * obj.rings->outerRadius / (max(nearPlaneDistance, altitude) * pixelSize);
@@ -2998,7 +3009,7 @@ void Renderer::renderObject(const Vector3f& pos,
                              textureResolution,
                              (renderFlags & ShowRingShadows) != 0 && lit,
                              segmentSizeInPixels,
-                             mvp, this);
+                             ringsMVP, this);
         }
     }
 
@@ -3034,7 +3045,7 @@ void Renderer::renderObject(const Vector3f& pos,
                                       radius * atmScale,
                                       obj.orientation,
                                       viewFrustum,
-                                      mvp, this);
+                                      planetMVP, this);
             }
             else
             {
@@ -3058,7 +3069,7 @@ void Renderer::renderObject(const Vector3f& pos,
         if (cloudTex != nullptr)
         {
             float cloudScale = 1.0f + atmosphere->cloudHeight / radius;
-            Matrix4f cmv = vecgl::scale(mv, cloudScale);
+            Matrix4f cmv = vecgl::scale(planetMV, cloudScale);
             Matrices mvp = { m.projection, &cmv };
 
             // If we're beneath the cloud level, render the interior of
@@ -3106,7 +3117,7 @@ void Renderer::renderObject(const Vector3f& pos,
         }
     }
 
-    if (obj.rings != nullptr && (renderFlags & ShowPlanetRings) != 0)
+    if (showRings)
     {
         if (lit && (renderFlags & ShowRingShadows) != 0)
         {
@@ -3123,7 +3134,7 @@ void Renderer::renderObject(const Vector3f& pos,
                              textureResolution,
                              (renderFlags & ShowRingShadows) != 0 && lit,
                              segmentSizeInPixels,
-                             mvp, this);
+                             ringsMVP, this);
         }
     }
 
@@ -3525,6 +3536,7 @@ void Renderer::renderPlanet(Body& body,
         if (body.getLocations() != nullptr && (labelMode & LocationLabels) != 0)
         {
             // Set up location markers for this body
+            using namespace celestia;
             mountainRep    = MarkerRepresentation(MarkerRepresentation::Triangle, 8.0f, LocationLabelColor);
             craterRep      = MarkerRepresentation(MarkerRepresentation::Circle,   8.0f, LocationLabelColor);
             observatoryRep = MarkerRepresentation(MarkerRepresentation::Plus,     8.0f, LocationLabelColor);
@@ -4730,6 +4742,7 @@ void Renderer::renderDeepSkyObjects(const Universe& universe,
 
     dsoRenderer.labelThresholdMag = 2.0f * max(1.0f, (faintestMag - 4.0f) * (1.0f - 0.5f * (float) log10(effDistanceToScreen)));
 
+    using namespace celestia;
     galaxyRep      = MarkerRepresentation(MarkerRepresentation::Triangle, 8.0f, GalaxyLabelColor);
     nebulaRep      = MarkerRepresentation(MarkerRepresentation::Square,   8.0f, NebulaLabelColor);
     openClusterRep = MarkerRepresentation(MarkerRepresentation::Circle,   8.0f, OpenClusterLabelColor);
@@ -4939,7 +4952,7 @@ Renderer::renderAnnotationMarker(const Annotation &a,
                                  float depth,
                                  const Matrices &m)
 {
-    const MarkerRepresentation& markerRep = *a.markerRep;
+    const celestia::MarkerRepresentation& markerRep = *a.markerRep;
     float size = a.size > 0.0f ? a.size : markerRep.size();
 
     glVertexAttrib(CelestiaGLProgram::ColorAttributeIndex, a.color);
@@ -4947,20 +4960,24 @@ Renderer::renderAnnotationMarker(const Annotation &a,
     Matrix4f mv = vecgl::translate(*m.modelview, (float)(int)a.position.x(), (float)(int)a.position.y(), depth);
     Matrices mm = { m.projection, &mv };
 
-    if (markerRep.symbol() == MarkerRepresentation::Crosshair)
+    if (markerRep.symbol() == celestia::MarkerRepresentation::Crosshair)
         renderCrosshair(size, realTime, a.color, mm);
     else
         markerRep.render(*this, size, mm);
 
     if (!markerRep.label().empty())
     {
-        int labelOffset = (int)markerRep.size() / 2;
-        float x = labelOffset + PixelOffset;
-        float y = -labelOffset - font[fs]->getHeight() + PixelOffset;
-        font[fs]->bind();
-        font[fs]->setMVPMatrices(*m.projection, mv);
-        font[fs]->render(markerRep.label(), x, y);
-        font[fs]->flush();
+        auto font = getFont(fs);
+        if (font)
+        {
+            int labelOffset = (int)markerRep.size() / 2;
+            float x = labelOffset + PixelOffset;
+            float y = -labelOffset - font->getHeight() + PixelOffset;
+            font->bind();
+            font->setMVPMatrices(*m.projection, mv);
+            font->render(markerRep.label(), x, y);
+            font->flush();
+        }
     }
 }
 
@@ -4979,17 +4996,22 @@ Renderer::renderAnnotationLabel(const Annotation &a,
                                    (int)a.position.y() + vOffset + PixelOffset,
                                    depth);
 
-    font[fs]->bind();
-    font[fs]->setMVPMatrices(*m.projection, mv);
-    font[fs]->render(a.labelText, 0.0f, 0.0f);
-    font[fs]->flush();
+    auto font = getFont(fs);
+    if (!font)
+        return;
+
+    font->bind();
+    font->setMVPMatrices(*m.projection, mv);
+    font->render(a.labelText, 0.0f, 0.0f);
+    font->flush();
 }
 
 // stars and constellations. DSOs
 void Renderer::renderAnnotations(const vector<Annotation>& annotations,
                                  FontStyle fs)
 {
-    if (font[fs] == nullptr)
+    auto font = getFont(fs);
+    if (!font)
         return;
 
     // Enable line smoothing for rendering symbols
@@ -5020,12 +5042,12 @@ void Renderer::renderAnnotations(const vector<Annotation>& annotations,
             switch (annotations[i].halign)
             {
             case AlignCenter:
-                labelWidth = (font[fs]->getWidth(annotations[i].labelText));
+                labelWidth = (font->getWidth(annotations[i].labelText));
                 hOffset = -labelWidth / 2;
                 break;
 
             case AlignRight:
-                labelWidth = (font[fs]->getWidth(annotations[i].labelText));
+                labelWidth = (font->getWidth(annotations[i].labelText));
                 hOffset = -(labelWidth + 2);
                 break;
 
@@ -5038,10 +5060,10 @@ void Renderer::renderAnnotations(const vector<Annotation>& annotations,
             switch (annotations[i].valign)
             {
             case VerticalAlignCenter:
-                vOffset = -font[fs]->getHeight() / 2;
+                vOffset = -font->getHeight() / 2;
                 break;
             case VerticalAlignTop:
-                vOffset = -font[fs]->getHeight();
+                vOffset = -font->getHeight();
                 break;
             case VerticalAlignBottom:
                 vOffset = 0;
@@ -5055,7 +5077,7 @@ void Renderer::renderAnnotations(const vector<Annotation>& annotations,
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 #endif
 
-    font[fs]->unbind();
+    font->unbind();
     disableSmoothLines();
 }
 
@@ -5100,7 +5122,8 @@ Renderer::renderAnnotations(vector<Annotation>::iterator startIter,
                             float farDist,
                             FontStyle fs)
 {
-    if (font[fs] == nullptr)
+    auto font = getFont(fs);
+    if (!font)
         return endIter;
 
     enableDepthTest();
@@ -5146,13 +5169,13 @@ Renderer::renderAnnotations(vector<Annotation>::iterator startIter,
     }
 
     disableDepthTest();
-    font[fs]->unbind();
+    font->unbind();
 
     return iter;
 }
 
 
-void Renderer::markersToAnnotations(const MarkerList& markers,
+void Renderer::markersToAnnotations(const celestia::MarkerList& markers,
                                     const Observer& observer,
                                     double jd)
 {
@@ -5169,7 +5192,7 @@ void Renderer::markersToAnnotations(const MarkerList& markers,
         if ((offset.dot(viewVector)) > cosViewConeAngle * distance)
         {
             float symbolSize = 0.0f;
-            if (marker.sizing() == DistanceBasedSize)
+            if (marker.sizing() == celestia::DistanceBasedSize)
             {
                 symbolSize = (float) (marker.representation().size() / distance) / pixelSize;
             }
@@ -5485,12 +5508,12 @@ bool Renderer::captureFrame(int x, int y, int w, int h, Renderer::PixelFormat fo
     return glGetError() == GL_NO_ERROR;
 }
 
-void Renderer::drawRectangle(const Rect &r, int fishEyeOverrideMode, const Eigen::Matrix4f& p, const Eigen::Matrix4f& m)
+void Renderer::drawRectangle(const celestia::Rect &r, int fishEyeOverrideMode, const Eigen::Matrix4f& p, const Eigen::Matrix4f& m)
 {
     ShaderProperties shadprop;
     shadprop.lightModel = ShaderProperties::UnlitModel;
 
-    bool solid = r.type != Rect::Type::BorderOnly;
+    bool solid = r.type != celestia::Rect::Type::BorderOnly;
     bool lineAsTriangles = false;
     if (!solid)
     {
@@ -5888,7 +5911,7 @@ Renderer::selectionToAnnotation(const Selection &sel,
 {
     Vector3d offset = sel.getPosition(jd).offsetFromKm(observer.getPosition());
 
-    static MarkerRepresentation cursorRep(MarkerRepresentation::Crosshair);
+    static celestia::MarkerRepresentation cursorRep(celestia::MarkerRepresentation::Crosshair);
     if (xfrustum.testSphere(offset, sel.radius()) == Frustum::Outside)
         return false;
 

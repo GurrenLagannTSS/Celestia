@@ -11,6 +11,7 @@
 // of the License, or (at your option) any later version.
 
 #include <QAction>
+#include <QActionGroup>
 #include <QMenu>
 #include <celestia/celestiacore.h>
 #include <celutil/gettext.h>
@@ -87,7 +88,7 @@ CelestiaActions::CelestiaActions(QObject* parent,
     minorMoonOrbitsAction   = createCheckableAction(_("Minor Moons"),   orbitsMenu, Body::MinorMoon);
     asteroidOrbitsAction    = createCheckableAction(_("Asteroids"),     orbitsMenu, Body::Asteroid);
     cometOrbitsAction       = createCheckableAction(_("Comets"),        orbitsMenu, Body::Comet);
-    spacecraftOrbitsAction  = createCheckableAction(_("Spacecrafts"),   orbitsMenu, Body::Spacecraft);
+    spacecraftOrbitsAction  = createCheckableAction(C_("plural", "Spacecraft"),   orbitsMenu, Body::Spacecraft);
 
     connect(starOrbitsAction,           SIGNAL(triggered()), this, SLOT(slotToggleOrbit()));
     connect(planetOrbitsAction,         SIGNAL(triggered()), this, SLOT(slotToggleOrbit()));
@@ -114,7 +115,7 @@ CelestiaActions::CelestiaActions(QObject* parent,
     labelMinorMoonsAction     = createCheckableAction(_("Minor Moons"),     labelsMenu, Renderer::MinorMoonLabels);
     labelAsteroidsAction      = createCheckableAction(_("Asteroids"),       labelsMenu, Renderer::AsteroidLabels);
     labelCometsAction         = createCheckableAction(_("Comets"),          labelsMenu, Renderer::CometLabels);
-    labelSpacecraftAction     = createCheckableAction(_("Spacecrafts"),     labelsMenu, Renderer::SpacecraftLabels);
+    labelSpacecraftAction     = createCheckableAction(C_("plural", "Spacecraft"),     labelsMenu, Renderer::SpacecraftLabels);
     labelGalaxiesAction       = createCheckableAction(_("Galaxies"),        labelsMenu, Renderer::GalaxyLabels);
     labelGlobularsAction      = createCheckableAction(_("Globulars"),       labelsMenu, Renderer::GlobularLabels);
     labelOpenClustersAction   = createCheckableAction(_("Open clusters"),   labelsMenu, Renderer::OpenClusterLabels);
