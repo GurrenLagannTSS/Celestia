@@ -31,6 +31,7 @@
 #include <celengine/planetgrid.h>
 #include <celengine/visibleregion.h>
 #include <celengine/framebuffer.h>
+#include <celimage/imageformats.h>
 #include <celmath/geomutil.h>
 #include <celutil/color.h>
 #include <celutil/filetype.h>
@@ -54,18 +55,18 @@
 #include <set>
 #include <celengine/rectangle.h>
 #include <celengine/mapmanager.h>
+#include <fmt/ostream.h>
 
 #ifdef CELX
 #include <celephem/scriptobject.h>
 #endif
 #include <celttf/truetypefont.h>
 
-#include "imagecapture.h"
-
 using namespace Eigen;
 using namespace std;
 using namespace astro::literals;
 using namespace celmath;
+using namespace celestia;
 using namespace celestia::scripts;
 using namespace celestia::util;
 
@@ -107,7 +108,7 @@ static bool is_valid_directory(const fs::path& dir)
     std::error_code ec;
     if (!fs::is_directory(dir, ec))
     {
-        fmt::fprintf(cerr, _("Path %s doesn't exist or isn't a directory"), dir);
+        fmt::fprintf(cerr, _("Path %s doesn't exist or isn't a directory"), dir.string());
         return false;
     }
 
@@ -3774,11 +3775,11 @@ bool CelestiaCore::initSimulation(const fs::path& configFileName,
         ifstream dsoFile(file.string(), ios::in);
         if (!dsoFile.good())
         {
-            warning(fmt::sprintf(_("Error opening deepsky catalog file %s.\n"), file));
+            warning(fmt::sprintf(_("Error opening deepsky catalog file %s.\n"), file.string()));
         }
         if (!dsoDB->load(dsoFile, ""))
         {
-            warning(fmt::sprintf(_("Cannot read Deep Sky Objects database %s.\n"), file));
+            warning(fmt::sprintf(_("Cannot read Deep Sky Objects database %s.\n"), file.string()));
         }
     }
 
@@ -4719,20 +4720,49 @@ View* CelestiaCore::getViewByObserver(const Observer *obs) const
     return nullptr;
 }
 
+Image CelestiaCore::captureImage() const
+{
+    // Get the dimensions of the current viewport
+    array<int, 4> viewport;
+    getRenderer()->getViewport(viewport);
+
+    PixelFormat format = renderer->getPreferredCaptureFormat();
+
+    Image image(format, viewport[2], viewport[3]);
+    if (!renderer->captureFrame(viewport[0], viewport[1],
+                                viewport[2], viewport[3],
+                                format, image.getPixels()))
+    {
+        fmt::print(cerr, _("Unable to capture a frame!\n"));
+    }
+    return image;
+}
+
 bool CelestiaCore::saveScreenShot(const fs::path& filename, ContentType type) const
 {
     if (type == Content_Unknown)
         type = DetermineFileType(filename);
 
-    // Get the dimensions of the current viewport
-    array<int, 4> viewport;
-    getRenderer()->getViewport(viewport);
+    if (type != Content_JPEG && type != Content_PNG)
+    {
+        fmt::print(cerr, _("Unsupported image type: {}!\n"), filename.string());
+        return false;
+    }
 
-    return CaptureBufferToFile(filename,
-                               viewport[0], viewport[1],
-                               viewport[2], viewport[3],
-                               getRenderer(),
-                               type);
+    Image image = captureImage();
+    if (!image.isValid())
+        return false;
+
+    switch (type)
+    {
+    case Content_JPEG:
+        return SaveJPEGImage(filename, image);
+    case Content_PNG:
+        return SavePNGImage(filename, image);
+    default:
+        break;
+    }
+    return false;
 }
 
 void CelestiaCore::setLogFile(fs::path &fn)
@@ -4746,7 +4776,7 @@ void CelestiaCore::setLogFile(fs::path &fn)
     }
     else
     {
-        fmt::fprintf(cerr, "Unable to open log file %s\n", fn);
+        fmt::fprintf(cerr, "Unable to open log file %s\n", fn.string());
     }
 }
 
